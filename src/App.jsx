@@ -1527,7 +1527,7 @@ export default function App() {
                     {lang==="fr"?`remise partenaire -${discount}% appliquée`:`partner discount -${discount}% applied`}
                   </span>
                 </div>
-                <div className="coterm-rich-grid">
+                <div className="coterm-rich-grid" style={{maxWidth:"800px"}}>
                   {analysisEntries[0].data.coterm_options.map((opt, i) => {
                     const label = lang==="en" ? opt.label_en : opt.label_fr;
                     const HDRS = ["#1A3A5C","#1E4E7A","#1a6ea3"];
@@ -2622,6 +2622,7 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
           )}
         </div>
       )}
+      </div>{/* end max-width */}
     </div>
   );
 }
@@ -2824,6 +2825,7 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
 
   return (
     <div style={{marginBottom:"1rem"}}>
+      <div style={{maxWidth:"700px"}}>
       {/* Row 1 — Total */}
       <div style={{
         border:"1px solid var(--border)", borderRadius:"12px", padding:"1.5rem",
