@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import "./App.css";
 
 const API_URL = typeof import.meta !== 'undefined' && import.meta.env
@@ -3228,19 +3228,19 @@ function LicenceTable({ files, lang, expiryDays }) {
               const cleanClient=(!r.client||r.client.startsWith("(")||r.client==="—")?"—":r.client;
               const isFirstOfFile = files.length > 1 && (i === 0 || filtered[i-1]._file !== r._file);
               return (
-                <>
+                <Fragment key={i}>
                   {isFirstOfFile && (
-                    <tr key={`sep-${i}`}>
+                    <tr>
                       <td colSpan={COLS.length} style={{
                         padding:"5px 10px", background:"#1A3C5E",
                         color:"rgba(255,255,255,.9)", fontSize:".72rem", fontWeight:700,
                         letterSpacing:".05em"
                       }}>
-                        📄 {r._file?.replace(".csv","") || "—"}
+                        📄 {(r._file||"").replace(".csv","") || "—"}
                       </td>
                     </tr>
                   )}
-                <tr key={i} style={{borderBottom:"0.5px solid var(--border)",background:i%2===0?"transparent":"var(--bg2,#f8fafe)"}}>
+                <tr style={{borderBottom:"0.5px solid var(--border)",background:i%2===0?"transparent":"var(--bg2,#f8fafe)"}}>
                   <td style={{padding:"6px 10px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)",fontWeight:500}}>{cleanClient}</td>
                   <td style={{padding:"6px 10px",whiteSpace:"nowrap",color:"var(--text)"}}>
                     {r.software?.includes("Advanced Security")
@@ -3259,7 +3259,7 @@ function LicenceTable({ files, lang, expiryDays }) {
                   <td style={{padding:"6px 10px",textAlign:"center",color:"var(--muted)"}}>{r.users}</td>
                   <td style={{padding:"6px 10px",color:"var(--muted)",whiteSpace:"nowrap"}}>{r.created}</td>
                 </tr>
-                </>
+                </Fragment>
               );
             })}
           </tbody>
