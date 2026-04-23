@@ -1354,6 +1354,7 @@ export default function App() {
     const iSoftware = idx("software");
     const iStatus   = idx("status");
     const iCompany  = idx("customer_comments");
+    const iAK       = idx("activation_key");
     const iExpiry   = idx("support_expiry_date");
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
@@ -1364,55 +1365,69 @@ export default function App() {
         software: iSoftware>= 0 ? c[iSoftware]: "",
         status:   iStatus  >= 0 ? c[iStatus]  : "",
         company:  iCompany >= 0 ? c[iCompany] : "",
+        ak:       iAK      >= 0 ? c[iAK]      : "",
         expiry:   iExpiry  >= 0 ? c[iExpiry]  : "",
       });
     }
     setMasterRows(rows);
     setMasterLoaded(new Date());
-    setShowMasterLogin(false); // fermer la modale après chargement
+    setShowMasterLogin(false);
 
-    // Build client list by domain
-    const domainMap = {};
+    // Grouper par clé d'activation (+ fallback domaine email)
+    const akMap = {};
     rows.forEach(r => {
+      const ak = r.ak || "";
       const email = r.email || "";
       const domain = email.includes("@") ? email.split("@")[1]?.toLowerCase() : "";
-      if (!domain) return;
-      if (!domainMap[domain]) domainMap[domain] = { domain, emails: new Set(), count: 0, company: r.company };
-      domainMap[domain].emails.add(email);
-      domainMap[domain].count++;
-      if (r.company && !domainMap[domain].company) domainMap[domain].company = r.company;
+      // Clé de groupement : activation_key si dispo, sinon domaine email
+      const groupKey = ak || domain;
+      if (!groupKey) return;
+      if (!akMap[groupKey]) akMap[groupKey] = {
+        key: groupKey, ak, domain: domain||"", count: 0,
+        company: r.company || "", emails: new Set()
+      };
+      akMap[groupKey].count++;
+      if (email) akMap[groupKey].emails.add(email);
+      if (r.company && r.company !== "—" && !akMap[groupKey].company) akMap[groupKey].company = r.company;
+      if (!akMap[groupKey].domain && domain) akMap[groupKey].domain = domain;
     });
-    setMasterClients(Object.values(domainMap).sort((a,b) => b.count - a.count));
+    setMasterClients(Object.values(akMap).sort((a,b) => b.count - a.count));
   };
 
-  const handleMasterSelectClient = async (domain) => {
-    // Filter rows for this domain
+  const handleMasterSelectClient = async (groupKey, label) => {
+    // Filter rows by activation_key or email domain
     const clientRows = masterRows.filter(r => {
-      const email = r.email || "";
-      const d = email.includes("@") ? email.split("@")[1]?.toLowerCase() : "";
-      return d === domain;
+      if (r.ak && r.ak === groupKey) return true;
+      if (!r.ak) {
+        const email = r.email || "";
+        const d = email.includes("@") ? email.split("@")[1]?.toLowerCase() : "";
+        if (d && d === groupKey) return true;
+      }
+      return false;
     });
     if (!clientRows.length) return;
 
-    // Rebuild a CSV string from these rows
+    // Rebuild CSV
     const header = masterRows[0]._header;
     const csvLines = [header.join(";")];
     clientRows.forEach(r => csvLines.push(r._cols.join(";")));
     const csvContent = csvLines.join("\n");
 
-    // Create a File object and inject it as if the user uploaded it
+    const safeLabel = (label || groupKey).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 40);
     const blob = new Blob([csvContent], { type: "text/csv" });
-    const file = new File([blob], `${domain}.csv`, { type: "text/csv" });
+    const file = new File([blob], `${safeLabel}.csv`, { type: "text/csv" });
     addFiles([file]);
     setMasterSearch("");
     setV2Tab("dashboard");
   };
 
   const masterSearchResults = masterSearch.length >= 1
-    ? masterClients.filter(c =>
-        c.domain.includes(masterSearch.toLowerCase()) ||
-        c.company?.toLowerCase().includes(masterSearch.toLowerCase())
-      ).slice(0, 8)
+    ? masterClients.filter(c => {
+        const q = masterSearch.toLowerCase();
+        return c.company?.toLowerCase().includes(q) ||
+               c.domain?.includes(q) ||
+               c.ak?.toLowerCase().includes(q);
+      }).slice(0, 10)
     : [];
 
   const analysisEntries = Object.values(analyses).sort((a, b) => {
@@ -1757,7 +1772,7 @@ export default function App() {
                 }}>
                   {masterSearchResults.length > 0 ? masterSearchResults.map((c, i) => (
                     <div key={i}
-                      onClick={()=>{ handleMasterSelectClient(c.domain); }}
+                      onClick={()=>{ handleMasterSelectClient(c.key, c.company || c.domain || c.ak); }}
                       style={{
                         padding:".75rem 1rem", cursor:"pointer", background:"var(--surface)",
                         borderBottom: i < masterSearchResults.length-1 ? "0.5px solid var(--border)" : "none",
@@ -1767,13 +1782,16 @@ export default function App() {
                       onMouseEnter={e=>e.currentTarget.style.background="var(--bg2,#f0f2f5)"}
                       onMouseLeave={e=>e.currentTarget.style.background="var(--surface)"}
                     >
-                      <div>
-                        <div style={{fontWeight:600, fontSize:".9rem", color:"var(--text)"}}>{c.domain}</div>
-                        {c.company && c.company !== "—" && (
-                          <div style={{fontSize:".75rem", color:"var(--muted)", marginTop:"1px"}}>{c.company}</div>
-                        )}
+                      <div style={{minWidth:0}}>
+                        <div style={{fontWeight:600, fontSize:".88rem", color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                          {c.company && c.company !== "—" ? c.company : c.ak || c.domain}
+                        </div>
+                        <div style={{fontSize:".72rem", color:"var(--muted)", marginTop:"1px", fontFamily:"monospace"}}>
+                          {c.ak ? c.ak : c.domain}
+                          {c.domain && c.ak ? <span style={{color:"var(--border)"}}> · {c.domain}</span> : ""}
+                        </div>
                       </div>
-                      <div style={{textAlign:"right", flexShrink:0}}>
+                      <div style={{textAlign:"right", flexShrink:0, marginLeft:"8px"}}>
                         <span style={{
                           fontSize:".78rem", fontWeight:700, color:"var(--accent)",
                           padding:"2px 8px", borderRadius:"99px",
