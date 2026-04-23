@@ -594,6 +594,18 @@ export default function App() {
     return localStorage.getItem("theme_v2") === "dark"; // nouvelle clé → repart en clair
   });
   const [v2Tab, setV2Tab] = useState("dashboard");
+
+  // ── Mode base globale ──────────────────────────────────────────────
+  const MASTER_PWD = (typeof import.meta !== "undefined" && import.meta.env?.VITE_MASTER_PASSWORD) || "tsplus2025";
+  const [masterAuth, setMasterAuth]           = useState(() => sessionStorage.getItem("master_auth") === "1");
+  const [masterPwdInput, setMasterPwdInput]   = useState("");
+  const [masterPwdError, setMasterPwdError]   = useState(false);
+  const [showMasterLogin, setShowMasterLogin] = useState(false);
+  const [masterRows, setMasterRows]           = useState([]);
+  const [masterSearch, setMasterSearch]       = useState("");
+  const [masterClients, setMasterClients]     = useState([]);
+  const [masterLoaded, setMasterLoaded]       = useState(null);
+  const masterCsvRef = useRef();
   const [tooltip, setTooltip]       = useState(null);
   const [partnerNames, setPartnerNames] = useState({});
   const [lang, setLang]             = useState(() => localStorage.getItem("lang") || "fr");
@@ -1317,6 +1329,91 @@ export default function App() {
     finally { setXlsxLoading(false); }
   };
 
+  // ── Fonctions base globale ─────────────────────────────────────────
+  const handleMasterLogin = () => {
+    if (masterPwdInput === MASTER_PWD) {
+      sessionStorage.setItem("master_auth", "1");
+      setMasterAuth(true);
+      setShowMasterLogin(false);
+      setMasterPwdInput("");
+      setMasterPwdError(false);
+    } else {
+      setMasterPwdError(true);
+    }
+  };
+
+  const handleMasterCsvLoad = async (file) => {
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split("\n").filter(l => l.trim());
+    if (lines.length < 2) return;
+    const sep = ";";
+    const header = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g,"").replace(/^\ufeff/,"").toLowerCase());
+    const idx = n => header.findIndex(h => h === n);
+    const iEmail    = idx("email");
+    const iSoftware = idx("software");
+    const iStatus   = idx("status");
+    const iCompany  = idx("customer_comments");
+    const iExpiry   = idx("support_expiry_date");
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const c = lines[i].split(sep).map(v => v.trim().replace(/^"|"$/g,""));
+      if (!c[0]) continue;
+      rows.push({ _raw: lines[i], _cols: c, _header: header,
+        email:    iEmail   >= 0 ? c[iEmail]   : "",
+        software: iSoftware>= 0 ? c[iSoftware]: "",
+        status:   iStatus  >= 0 ? c[iStatus]  : "",
+        company:  iCompany >= 0 ? c[iCompany] : "",
+        expiry:   iExpiry  >= 0 ? c[iExpiry]  : "",
+      });
+    }
+    setMasterRows(rows);
+    setMasterLoaded(new Date());
+
+    // Build client list by domain
+    const domainMap = {};
+    rows.forEach(r => {
+      const email = r.email || "";
+      const domain = email.includes("@") ? email.split("@")[1]?.toLowerCase() : "";
+      if (!domain) return;
+      if (!domainMap[domain]) domainMap[domain] = { domain, emails: new Set(), count: 0, company: r.company };
+      domainMap[domain].emails.add(email);
+      domainMap[domain].count++;
+      if (r.company && !domainMap[domain].company) domainMap[domain].company = r.company;
+    });
+    setMasterClients(Object.values(domainMap).sort((a,b) => b.count - a.count));
+  };
+
+  const handleMasterSelectClient = async (domain) => {
+    // Filter rows for this domain
+    const clientRows = masterRows.filter(r => {
+      const email = r.email || "";
+      const d = email.includes("@") ? email.split("@")[1]?.toLowerCase() : "";
+      return d === domain;
+    });
+    if (!clientRows.length) return;
+
+    // Rebuild a CSV string from these rows
+    const header = masterRows[0]._header;
+    const csvLines = [header.join(";")];
+    clientRows.forEach(r => csvLines.push(r._cols.join(";")));
+    const csvContent = csvLines.join("\n");
+
+    // Create a File object and inject it as if the user uploaded it
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const file = new File([blob], `${domain}.csv`, { type: "text/csv" });
+    addFiles([file]);
+    setMasterSearch("");
+    setV2Tab("dashboard");
+  };
+
+  const masterSearchResults = masterSearch.length >= 2
+    ? masterClients.filter(c =>
+        c.domain.includes(masterSearch.toLowerCase()) ||
+        c.company?.toLowerCase().includes(masterSearch.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
   const analysisEntries = Object.values(analyses).sort((a, b) => {
     const expPctA = a.data?.total > 0 ? (a.data.expired_us / a.data.total) : 0;
     const expPctB = b.data?.total > 0 ? (b.data.expired_us / b.data.total) : 0;
@@ -1345,9 +1442,138 @@ export default function App() {
             </div>
 
             <button className="theme-toggle" onClick={()=>setDarkMode(d=>!d)}>{darkMode?"☀️":"🌙"}</button>
+            <button onClick={()=>{ if(masterAuth){setShowMasterLogin(s=>!s);}else{setShowMasterLogin(s=>!s);} }}
+              style={{
+                padding:"4px 10px", borderRadius:"7px", fontSize:".75rem",
+                border:`1px solid ${masterAuth?"rgba(29,158,117,.4)":"var(--border)"}`,
+                background: masterAuth ? "rgba(29,158,117,.1)" : "transparent",
+                color: masterAuth ? "#1D9E75" : "var(--muted)",
+                cursor:"pointer", display:"flex", alignItems:"center", gap:"5px"
+              }}>
+              {masterAuth ? "🗂" : "🔐"}
+              {masterAuth
+                ? (masterLoaded ? `Base globale · ${masterClients.length} clients` : "Base globale")
+                : (lang==="fr" ? "Base globale" : "Global base")}
+            </button>
           </div>
         </div>
       </header>
+
+      {/* ── Panel Base Globale ───────────────────────────────────── */}
+      {showMasterLogin && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+          zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"
+        }} onClick={e=>{ if(e.target===e.currentTarget) setShowMasterLogin(false); }}>
+          <div style={{
+            background:"var(--surface)", border:"1px solid var(--border)",
+            borderRadius:"14px", padding:"2rem", width:"100%", maxWidth:"420px",
+            margin:"0 1rem"
+          }}>
+            {!masterAuth ? (
+              <>
+                <div style={{fontWeight:700, fontSize:"1.1rem", marginBottom:".5rem"}}>🔐 {lang==="fr"?"Accès base globale":"Global base access"}</div>
+                <p style={{fontSize:".82rem", color:"var(--muted)", marginBottom:"1.2rem"}}>
+                  {lang==="fr"?"Entrez le mot de passe pour accéder au mode base globale.":"Enter the password to access the global base mode."}
+                </p>
+                <input
+                  type="password" autoFocus value={masterPwdInput}
+                  onChange={e=>{ setMasterPwdInput(e.target.value); setMasterPwdError(false); }}
+                  onKeyDown={e=>{ if(e.key==="Enter") handleMasterLogin(); }}
+                  placeholder={lang==="fr"?"Mot de passe…":"Password…"}
+                  style={{
+                    width:"100%", padding:".6rem .75rem", borderRadius:"8px",
+                    border:`1px solid ${masterPwdError?"#c0392b":"var(--border)"}`,
+                    background:"var(--bg)", color:"var(--text)", fontSize:".9rem",
+                    outline:"none", marginBottom:".5rem"
+                  }}/>
+                {masterPwdError && <p style={{color:"#c0392b",fontSize:".78rem",marginBottom:".5rem"}}>❌ {lang==="fr"?"Mot de passe incorrect":"Incorrect password"}</p>}
+                <div style={{display:"flex",gap:"8px",marginTop:".5rem"}}>
+                  <button onClick={handleMasterLogin} style={{flex:1,padding:".6rem",borderRadius:"8px",border:"none",background:"#1A3C5E",color:"#fff",cursor:"pointer",fontWeight:600}}>
+                    {lang==="fr"?"Connexion →":"Login →"}
+                  </button>
+                  <button onClick={()=>setShowMasterLogin(false)} style={{padding:".6rem .9rem",borderRadius:"8px",border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer"}}>
+                    {lang==="fr"?"Annuler":"Cancel"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                  <div style={{fontWeight:700, fontSize:"1rem"}}>🗂 {lang==="fr"?"Base globale":"Global base"}</div>
+                  <div style={{display:"flex",gap:"8px"}}>
+                    {masterLoaded && <span style={{fontSize:".72rem",color:"var(--muted)"}}>
+                      {lang==="fr"?"Chargée":"Loaded"} {masterLoaded.toLocaleTimeString()} · {masterClients.length} clients
+                    </span>}
+                    <button onClick={()=>{ sessionStorage.removeItem("master_auth"); setMasterAuth(false); setMasterRows([]); setMasterClients([]); setMasterLoaded(null); }} style={{fontSize:".72rem",color:"#c0392b",background:"none",border:"none",cursor:"pointer"}}>
+                      {lang==="fr"?"Déconnexion":"Logout"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Upload CSV maître */}
+                <div
+                  onClick={()=>masterCsvRef.current.click()}
+                  style={{
+                    border:"1px dashed var(--border)", borderRadius:"10px",
+                    padding:"1rem", textAlign:"center", cursor:"pointer",
+                    marginBottom:"1rem", background:"var(--bg2,#f8fafe)"
+                  }}>
+                  <input ref={masterCsvRef} type="file" accept=".csv" style={{display:"none"}}
+                    onChange={e=>{ const f=e.target.files[0]; if(f) handleMasterCsvLoad(f); e.target.value=""; }}/>
+                  <div style={{fontSize:"1.5rem",marginBottom:"4px"}}>📂</div>
+                  <div style={{fontSize:".82rem",color:"var(--text)",fontWeight:600}}>
+                    {masterLoaded ? (lang==="fr"?"Recharger le CSV maître":"Reload master CSV") : (lang==="fr"?"Charger le CSV maître":"Load master CSV")}
+                  </div>
+                  <div style={{fontSize:".72rem",color:"var(--muted)",marginTop:"2px"}}>
+                    {lang==="fr"?"Export complet de toutes les licences TSplus":"Full export of all TSplus licences"}
+                  </div>
+                </div>
+
+                {/* Recherche client */}
+                {masterLoaded && (
+                  <>
+                    <input
+                      type="text" value={masterSearch}
+                      onChange={e=>setMasterSearch(e.target.value)}
+                      placeholder={lang==="fr"?"Rechercher par domaine ou nom client…":"Search by domain or client name…"}
+                      style={{
+                        width:"100%", padding:".6rem .75rem", borderRadius:"8px",
+                        border:"1px solid var(--border)", background:"var(--bg)",
+                        color:"var(--text)", fontSize:".85rem", outline:"none", marginBottom:".5rem"
+                      }}/>
+                    {masterSearchResults.length > 0 && (
+                      <div style={{border:"1px solid var(--border)",borderRadius:"8px",overflow:"hidden"}}>
+                        {masterSearchResults.map((c,i) => (
+                          <div key={i} onClick={()=>{ handleMasterSelectClient(c.domain); setShowMasterLogin(false); }}
+                            style={{
+                              padding:".65rem .85rem", cursor:"pointer",
+                              borderBottom: i < masterSearchResults.length-1 ? "0.5px solid var(--border)" : "none",
+                              display:"flex", justifyContent:"space-between", alignItems:"center"
+                            }}
+                            onMouseEnter={e=>e.currentTarget.style.background="var(--bg2,#f8fafe)"}
+                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <div>
+                              <div style={{fontWeight:600,fontSize:".82rem",color:"var(--text)"}}>{c.domain}</div>
+                              {c.company && <div style={{fontSize:".72rem",color:"var(--muted)"}}>{c.company}</div>}
+                            </div>
+                            <span style={{fontSize:".75rem",color:"var(--accent)",fontWeight:600}}>{c.count} lic. →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {masterSearch.length >= 2 && masterSearchResults.length === 0 && (
+                      <p style={{fontSize:".78rem",color:"var(--muted)",textAlign:"center",padding:".5rem"}}>
+                        {lang==="fr"?"Aucun client trouvé":"No client found"}
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bandeau cold start */}
       {serverStatus === "warming" && (
