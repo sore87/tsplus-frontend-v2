@@ -65,7 +65,7 @@ const T = {
     errNoFile: "Veuillez d'abord sélectionner au moins un fichier CSV.",
     errCotermDate: "Les dates de co-terming doivent être au moins dans 1 an.",
     errNotCsv: "Veuillez déposer des fichiers .csv",
-    errTooLarge: (name, n) => `⚠️ ${name} contient ${n} lignes. La limite est de 2 000 lignes pour éviter une surcharge du serveur.`,
+    errTooLarge: (name, n) => `⚠️ ${name} contient ${n} lignes. La limite est de 12 000 lignes pour éviter une surcharge du serveur.`,
     partnerNotFound: "Nom non détecté",
     footer: "Générateur de rapports commerciaux TSplus",
     faqTitle: "Questions fréquentes",
@@ -208,7 +208,7 @@ const T = {
     errNoFile: "Please select at least one CSV file first.",
     errCotermDate: "Co-terming dates must be at least 1 year from today.",
     errNotCsv: "Please drop .csv files only.",
-    errTooLarge: (name, n) => `⚠️ ${name} contains ${n} lines. The limit is 2,000 lines to avoid server overload.`,
+    errTooLarge: (name, n) => `⚠️ ${name} contains ${n} lines. The limit is 12,000 lines to avoid server overload.`,
     partnerNotFound: "Name not detected",
     footer: "TSplus Commercial Report Generator",
     faqTitle: "Frequently asked questions",
@@ -1040,7 +1040,7 @@ export default function App() {
     for (const f of csvFiles) {
       const text = await f.text();
       const lineCount = text.split("\n").filter(l => l.trim()).length - 1; // -1 pour l'en-tête
-      if (lineCount > 2000) {
+      if (lineCount > 12000) {
         setError(t.errTooLarge(f.name, lineCount.toLocaleString()));
         return;
       }
