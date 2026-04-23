@@ -1880,7 +1880,7 @@ export default function App() {
                         </div>
 
                         {/* Badges U&S */}
-                        <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                        <div style={{display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"10px"}}>
                           {active > 0 && (
                             <span style={{fontSize:".68rem",fontWeight:600,padding:"2px 6px",borderRadius:"4px",background:"rgba(29,158,117,.12)",color:"#1D9E75"}}>
                               ● {active}
@@ -1896,6 +1896,41 @@ export default function App() {
                               ● {expired}
                             </span>
                           )}
+                        </div>
+
+                        {/* Boutons Excel + PDF */}
+                        <div style={{display:"flex",gap:"6px"}} onClick={e=>e.stopPropagation()}>
+                          <button
+                            onClick={async e=>{
+                              e.stopPropagation();
+                              const f = files.find(f=>f.name===a.filename);
+                              if (!f) return;
+                              const fd = new FormData();
+                              fd.append("file", f);
+                              fd.append("email_sender", sender||"");
+                              fd.append("reseller_discount", (discount||20)/100);
+                              fd.append("currency", currency||"EUR");
+                              fd.append("fx_rate", fxRate||0.92);
+                              fd.append("expiry_warning_days", expiryDays||90);
+                              fd.append("lang", lang);
+                              fd.append("coterm_candidates", JSON.stringify(cotermDates.filter(d=>d.trim())));
+                              const res = await fetch(`${API_URL}/generate`, {method:"POST",body:fd});
+                              if (res.ok) { const blob=await res.blob(); const url=URL.createObjectURL(blob); const a2=document.createElement("a"); a2.href=url; a2.download=`${a.filename?.replace(".csv","")}_rapport.xlsx`; a2.click(); }
+                            }}
+                            style={{flex:1,padding:"4px 0",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",cursor:"pointer",fontSize:".7rem",fontWeight:600}}
+                          >
+                            📊 Excel
+                          </button>
+                          <button
+                            onClick={e=>{
+                              e.stopPropagation();
+                              setActiveTab(a.filename);
+                              setV2Tab("generate");
+                            }}
+                            style={{flex:1,padding:"4px 0",borderRadius:"6px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",cursor:"pointer",fontSize:".7rem",fontWeight:600}}
+                          >
+                            📄 PDF
+                          </button>
                         </div>
                       </div>
                     );
@@ -3117,6 +3152,8 @@ function LicenceTable({ files, lang, expiryDays }) {
       return true;
     })
     .sort((a,b) => {
+      // En mode multi-CSV, trier par client en premier
+      if (a._file !== b._file) return (a._file||"").localeCompare(b._file||"");
       if (sort.col==="urgency"||sort.col==="expiry") {
         const ua=_urg[a.usStatus]??3, ub=_urg[b.usStatus]??3;
         if (ua!==ub) return sort.dir==="asc"?ua-ub:ub-ua;
@@ -3189,7 +3226,20 @@ function LicenceTable({ files, lang, expiryDays }) {
             {filtered.map((r,i)=>{
               const badge=US_BADGE[r.usStatus]||US_BADGE.none;
               const cleanClient=(!r.client||r.client.startsWith("(")||r.client==="—")?"—":r.client;
+              const isFirstOfFile = files.length > 1 && (i === 0 || filtered[i-1]._file !== r._file);
               return (
+                <>
+                  {isFirstOfFile && (
+                    <tr key={`sep-${i}`}>
+                      <td colSpan={COLS.length} style={{
+                        padding:"5px 10px", background:"#1A3C5E",
+                        color:"rgba(255,255,255,.9)", fontSize:".72rem", fontWeight:700,
+                        letterSpacing:".05em"
+                      }}>
+                        📄 {r._file?.replace(".csv","") || "—"}
+                      </td>
+                    </tr>
+                  )}
                 <tr key={i} style={{borderBottom:"0.5px solid var(--border)",background:i%2===0?"transparent":"var(--bg2,#f8fafe)"}}>
                   <td style={{padding:"6px 10px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)",fontWeight:500}}>{cleanClient}</td>
                   <td style={{padding:"6px 10px",whiteSpace:"nowrap",color:"var(--text)"}}>
@@ -3209,6 +3259,7 @@ function LicenceTable({ files, lang, expiryDays }) {
                   <td style={{padding:"6px 10px",textAlign:"center",color:"var(--muted)"}}>{r.users}</td>
                   <td style={{padding:"6px 10px",color:"var(--muted)",whiteSpace:"nowrap"}}>{r.created}</td>
                 </tr>
+                </>
               );
             })}
           </tbody>
