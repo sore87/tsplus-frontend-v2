@@ -1836,6 +1836,85 @@ export default function App() {
         {/* Vue d'ensemble — Dashboard + Licences + Co-terming */}
         {analysisEntries.length > 0 && v2Tab === "dashboard" && (
           <>
+            {/* Cartes clients — mode multi-CSV uniquement */}
+            {analysisEntries.length > 1 && (
+              <div style={{marginBottom:"1.5rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:".75rem"}}>
+                  <div style={{width:"3px",height:"18px",background:"#1A3C5E",borderRadius:"2px"}}/>
+                  <span style={{fontSize:".82rem",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em"}}>
+                    {lang==="fr" ? `${analysisEntries.length} clients` : `${analysisEntries.length} clients`}
+                  </span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"10px"}}>
+                  {analysisEntries.map((a, i) => {
+                    const d = a.data || {};
+                    const total    = d.total || 0;
+                    const active   = d.active || 0;
+                    const expiring = d.expiring_soon || 0;
+                    const expired  = d.expired_us || 0;
+                    const name     = d.company_name || a.filename?.replace(".csv","") || "—";
+                    const urgency  = total > 0 ? Math.round((expired + expiring) / total * 100) : 0;
+                    const urgencyColor = urgency > 50 ? "#c0392b" : urgency > 20 ? "#e67e22" : "#1D9E75";
+                    return (
+                      <div key={i} style={{
+                        background:"var(--surface)", border:`1px solid ${urgency > 30 ? "rgba(192,57,43,.3)" : "var(--border)"}`,
+                        borderTop:`3px solid ${urgencyColor}`,
+                        borderRadius:"10px", padding:"14px", cursor:"pointer",
+                        transition:"box-shadow .15s"
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.12)"}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+                        onClick={()=>setActiveTab(a.filename)}
+                      >
+                        {/* Nom client */}
+                        <div style={{fontWeight:700,fontSize:".88rem",color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:"10px"}}>
+                          {name}
+                        </div>
+
+                        {/* Grand chiffre */}
+                        <div style={{fontSize:"2rem",fontWeight:700,color:"var(--text)",lineHeight:1,marginBottom:"4px"}}>
+                          {total}
+                        </div>
+                        <div style={{fontSize:".7rem",color:"var(--muted)",marginBottom:"10px"}}>
+                          {lang==="fr" ? "licences" : "licences"}
+                        </div>
+
+                        {/* Badges U&S */}
+                        <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                          {active > 0 && (
+                            <span style={{fontSize:".68rem",fontWeight:600,padding:"2px 6px",borderRadius:"4px",background:"rgba(29,158,117,.12)",color:"#1D9E75"}}>
+                              ● {active}
+                            </span>
+                          )}
+                          {expiring > 0 && (
+                            <span style={{fontSize:".68rem",fontWeight:600,padding:"2px 6px",borderRadius:"4px",background:"rgba(230,126,34,.12)",color:"#e67e22"}}>
+                              ● {expiring}
+                            </span>
+                          )}
+                          {expired > 0 && (
+                            <span style={{fontSize:".68rem",fontWeight:600,padding:"2px 6px",borderRadius:"4px",background:"rgba(192,57,43,.12)",color:"#c0392b"}}>
+                              ● {expired}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Séparateur si multi */}
+            {analysisEntries.length > 1 && (
+              <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"1.5rem"}}>
+                <div style={{flex:1,height:"1px",background:"var(--border)"}}/>
+                <span style={{fontSize:".72rem",color:"var(--muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>
+                  {lang==="fr" ? "Vue agrégée" : "Aggregated view"}
+                </span>
+                <div style={{flex:1,height:"1px",background:"var(--border)"}}/>
+              </div>
+            )}
+
             {/* KPI Dashboard style portail */}
             <OverviewDashboard analyses={analysisEntries} lang={lang} expiryDays={expiryDays} />
 
