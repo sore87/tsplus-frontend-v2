@@ -1862,7 +1862,7 @@ export default function App() {
                     {lang==="fr"?`remise partenaire -${discount}% appliquée`:`partner discount -${discount}% applied`}
                   </span>
                 </div>
-                <div className="coterm-rich-grid" style={{maxWidth:"800px"}}>
+                <div className="coterm-rich-grid" style={{maxWidth:"800px", margin:"0 auto"}}>
                   {analysisEntries[0].data.coterm_options.map((opt, i) => {
                     const label = lang==="en" ? opt.label_en : opt.label_fr;
                     const HDRS = ["#1A3A5C","#1E4E7A","#1a6ea3"];
@@ -3156,7 +3156,7 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
   const COLORS = ["#1A3C5E","#1D9E75","#e67e22","#2980b9","#8e44ad"];
 
   return (
-    <div style={{marginBottom:"1rem", maxWidth:"700px"}}>
+    <div style={{marginBottom:"1rem", maxWidth:"700px", margin:"0 auto 1rem"}}>
       <div style={{
         border:"1px solid var(--border)", borderRadius:"12px", padding:"1.5rem",
         textAlign:"center", marginBottom:"12px", background:"var(--surface)"
