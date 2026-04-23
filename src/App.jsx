@@ -2015,8 +2015,8 @@ export default function App() {
 
         {/* Générer */}
         {analysisEntries.length > 0 && v2Tab === "generate" && (
-          <div className="layout">
-            <div className="col-main">
+          <div className="layout" style={{direction:"ltr"}}>
+            <div className="col-main" style={{order:2}}>
               {error && <div className="alert alert-error" style={{marginBottom:"1rem"}}>⚠️ {error}</div>}
               {summary && <div className="alert alert-ok" style={{marginBottom:"1rem"}}>✅ {summary.batch?t.summaryBatch(summary.count):t.summarySingle}</div>}
               {/* Bouton générer Excel */}
@@ -2063,7 +2063,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="col-side">
+            <div className="col-side" style={{order:1}}>
               <div className="side-section-primary">
                 <div className="card">
                   <h3>{t.agentTitle}</h3>
