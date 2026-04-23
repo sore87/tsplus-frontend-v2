@@ -2045,7 +2045,7 @@ export default function App() {
                       <button className={`tab-btn${activeTab==="global"?" active":""}`} onClick={()=>setActiveTab("global")}>{t.tabGlobal}</button>
                       {analysisEntries.map(a=>(
                         <button key={a.filename} className={`tab-btn${activeTab===a.filename?" active":""}`} onClick={()=>setActiveTab(a.filename)}>
-                          {a.filename.replace(".csv","").slice(0,16)}
+                          {(a.filename||"").replace(".csv","").slice(0,16)}
                           {analyses[a.filename]?.data?._source==="local" && <span title="Estimation locale" style={{marginLeft:"3px",opacity:.6}}>~</span>}
                           {a.data?.total > 0 && <span className="preview-tab-count">{a.data.total}</span>}
                         </button>
@@ -2053,9 +2053,9 @@ export default function App() {
                     </div>
                   )}
                   {activeTab==="global" && isBatch
-                    ? <GlobalPreview analyses={Object.fromEntries(analysisEntries.map(a=>[a.filename,a]))} t={t} discount={discount} expiryDays={expiryDays}/>
+                    ? <GlobalPreview analyses={Object.fromEntries(analysisEntries.filter(a=>a.filename).map(a=>[a.filename,a]))} t={t} discount={discount} expiryDays={expiryDays}/>
                     : (() => {
-                        const entry = isBatch ? analyses[activeTab] : analysisEntries[0];
+                        const entry = isBatch ? (analyses[activeTab] || analysisEntries[0]) : analysisEntries[0];
                         if (!entry?.data) return null;
                         return <PartnerPreview data={entry.data} t={t} discount={discount} expiryDays={expiryDays}/>;
                       })()
