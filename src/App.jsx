@@ -1322,6 +1322,12 @@ export default function App() {
     const expPctB = b.data?.total > 0 ? (b.data.expired_us / b.data.total) : 0;
     return expPctB - expPctA;
   });
+
+  // activeAnalysis — disponible dans le scope du composant pour le rendu
+  const _selectedFile = isBatch && activeTab !== "global"
+    ? files.find(f => f.name === activeTab)
+    : files[0];
+  const activeAnalysis = _selectedFile ? analyses[_selectedFile.name]?.data : null;
   const showPreview = analysisEntries.length > 0;
 
   return (
