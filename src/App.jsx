@@ -2622,7 +2622,6 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
           )}
         </div>
       )}
-      </div>
     </div>
   );
 }
@@ -2812,7 +2811,6 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
   const expiring = analyses.reduce((s,a) => s+(a.data?.expiring_soon||0), 0);
   const expired  = analyses.reduce((s,a) => s+(a.data?.expired_us||0), 0);
 
-  // Produits
   const prodMap = {};
   analyses.forEach(a => {
     if (!a.data?.products) return;
@@ -2821,12 +2819,8 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
   const products = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]);
   const COLORS = ["#1A3C5E","#1D9E75","#e67e22","#2980b9","#8e44ad"];
 
-  const pct = (n) => total > 0 ? Math.round(n/total*100) : 0;
-
   return (
-    <div style={{marginBottom:"1rem"}}>
-      <div style={{maxWidth:"700px"}}>
-      {/* Row 1 — Total */}
+    <div style={{marginBottom:"1rem", maxWidth:"700px"}}>
       <div style={{
         border:"1px solid var(--border)", borderRadius:"12px", padding:"1.5rem",
         textAlign:"center", marginBottom:"12px", background:"var(--surface)"
@@ -2839,16 +2833,14 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
           {expired  > 0 && <div style={{flex:expired,  background:"#c0392b"}}/>}
         </div>
       </div>
-
-      {/* Row 2 — 3 KPI cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"12px"}}>
         {[
-          {val:active,   label:isFr?"U&S actif":"U&S Active",         color:"#1D9E75", border:"#1D9E75"},
-          {val:expiring, label:isFr?`expiration < ${expiryDays}j`:`expiring < ${expiryDays}d`, color:"#e67e22", border:"#e67e22"},
-          {val:expired,  label:isFr?"U&S expiré":"U&S expired",        color:"#c0392b", border:"#c0392b"},
+          {val:active,   label:isFr?"U&S actif":"U&S Active",   color:"#1D9E75", border:"#1D9E75"},
+          {val:expiring, label:isFr?`< ${expiryDays}j`:`< ${expiryDays}d`, color:"#e67e22", border:"#e67e22"},
+          {val:expired,  label:isFr?"U&S expiré":"U&S expired", color:"#c0392b", border:"#c0392b"},
         ].map((kpi,i) => (
           <div key={i} style={{
-            border:`1px solid var(--border)`, borderLeft:`3px solid ${kpi.border}`,
+            border:"1px solid var(--border)", borderLeft:`3px solid ${kpi.border}`,
             borderRadius:"8px", padding:"1rem", background:"var(--surface)", textAlign:"center"
           }}>
             <div style={{fontSize:"1.8rem",fontWeight:700,color:kpi.color,lineHeight:1}}>{kpi.val}</div>
@@ -2856,43 +2848,33 @@ function OverviewDashboard({ analyses, lang, expiryDays }) {
           </div>
         ))}
       </div>
-
-      {/* Row 3 — Répartition produits */}
       {products.length > 0 && (
-        <div style={{
-          border:"1px solid var(--border)", borderRadius:"12px",
-          padding:"1.2rem", background:"var(--surface)"
-        }}>
+        <div style={{border:"1px solid var(--border)",borderRadius:"12px",padding:"1.2rem",background:"var(--surface)"}}>
           <div style={{fontSize:".8rem",fontWeight:700,color:"var(--accent)",marginBottom:"12px"}}>
             {isFr?"Répartition par produit":"Product breakdown"}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"2rem",flexWrap:"wrap"}}>
-            {/* Donut chart simple */}
             <svg viewBox="0 0 80 80" width="80" height="80" style={{flexShrink:0}}>
               {(() => {
                 let offset = 0;
-                const circumference = 2 * Math.PI * 30;
+                const circ = 2 * Math.PI * 30;
                 return products.map(([name, count], i) => {
-                  const pct = count / total;
-                  const dash = pct * circumference;
+                  const p = count / total;
+                  const dash = p * circ;
                   const el = (
-                    <circle key={i}
-                      cx="40" cy="40" r="30"
-                      fill="none"
-                      stroke={COLORS[i % COLORS.length]}
-                      strokeWidth="12"
-                      strokeDasharray={`${dash} ${circumference - dash}`}
-                      strokeDashoffset={-offset * circumference}
+                    <circle key={i} cx="40" cy="40" r="30" fill="none"
+                      stroke={COLORS[i % COLORS.length]} strokeWidth="12"
+                      strokeDasharray={`${dash} ${circ - dash}`}
+                      strokeDashoffset={-offset * circ}
                       transform="rotate(-90 40 40)"
                     />
                   );
-                  offset += pct;
+                  offset += p;
                   return el;
                 });
               })()}
               <circle cx="40" cy="40" r="18" fill="var(--bg)" />
             </svg>
-            {/* Légende */}
             <div style={{flex:1,display:"flex",flexDirection:"column",gap:"8px"}}>
               {products.map(([name, count], i) => (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:"8px"}}>
