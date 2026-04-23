@@ -2578,7 +2578,7 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
         const iEdition  = idx("edition"); const iUsers = idx("users");
         const iComputer = idx("computer_name"); const iAK = idx("activation_key");
         const iExpiry   = idx("support_expiry_date"); const iType = idx("type");
-        const iOrder    = idx("orderid"); const iClient = idx("customer_comments");
+        const iOrder    = idx("orderid"); const iClient = idx("email"); const iCompany = idx("customer_comments");
         const iWithSup  = idx("with_support"); const iCreated = idx("created_at");
         for (let i = 1; i < lines.length; i++) {
           const c = lines[i].split(sep).map(v => v.trim().replace(/^"|"$/g,""));
@@ -2595,6 +2595,7 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
           } else if (ws === 1) usStatus = "nodate";
           all.push({
             client:   iClient   >= 0 ? c[iClient]   : "—",
+            company:  iCompany  >= 0 ? c[iCompany]  : "—",
             software: iSoftware >= 0 ? c[iSoftware] : "—",
             edition:  iEdition  >= 0 ? c[iEdition]  : "—",
             users:    iUsers    >= 0 ? c[iUsers]    : "—",
@@ -2974,7 +2975,7 @@ function LicenceTable({ files, lang, expiryDays }) {
         const idx = n => header.findIndex(h => h === n);
         const iStatus=idx("status"),iSoftware=idx("software"),iEdition=idx("edition"),iUsers=idx("users"),
               iComputer=idx("computer_name"),iAK=idx("activation_key"),iExpiry=idx("support_expiry_date"),
-              iType=idx("type"),iOrder=idx("orderid"),iClient=idx("customer_comments"),
+              iType=idx("type"),iOrder=idx("orderid"),iClient=idx("email"),iCompany=idx("customer_comments"),
               iWithSup=idx("with_support"),iCreated=idx("created_at");
         for (let i=1; i<lines.length; i++) {
           const c = lines[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,""));
@@ -2988,7 +2989,7 @@ function LicenceTable({ files, lang, expiryDays }) {
             usStatus=diff<0?"expired":diff<=expiryDays?"expiring":"active";
           } else if (ws===1) usStatus="nodate";
           all.push({
-            client:iClient>=0?c[iClient]:"—",software:iSoftware>=0?c[iSoftware]:"—",
+            client:iClient>=0?c[iClient]:"—",company:iCompany>=0?c[iCompany]:"—",software:iSoftware>=0?c[iSoftware]:"—",
             edition:iEdition>=0?c[iEdition]:"—",users:iUsers>=0?c[iUsers]:"—",
             computer:iComputer>=0?c[iComputer]:"—",ak:iAK>=0?c[iAK]?.slice(0,22):"—",
             expiry,type:iType>=0?c[iType]:"Perpetual",orderid:iOrder>=0?c[iOrder]:"—",
