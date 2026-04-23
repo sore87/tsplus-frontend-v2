@@ -845,7 +845,7 @@ export default function App() {
         const email     = iEmail >= 0 ? cols[iEmail] : "";
         const users     = iUsers >= 0 ? parseInt(cols[iUsers]) || 1 : 1;
 
-        if (status.toLowerCase() !== "enabled") continue;
+        { const sv = status.toLowerCase(); if (sv === "disabled" || sv === "disabling..." || sv === "hidden") continue; }
 
         // Détecter nom société depuis domaine email
         if (!companyName) {
@@ -906,7 +906,7 @@ export default function App() {
       for (let i = 1; i < lines.length; i++) {
         const cols2 = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g,""));
         const statusVal = iStatus >= 0 ? cols2[iStatus] : "";
-        if (statusVal.toLowerCase() !== "enabled") continue;
+        { const sv3 = statusVal.toLowerCase(); if (sv3 === "disabled" || sv3 === "disabling..." || sv3 === "hidden") continue; }
         const rawVal = parseFloat(cols2[iUsers >= 0 ? iUsers : 0]) || 0; // placeholder
         // Chercher colonnes "price" et "public_price" pour calculer la remise
         const iPriceWithUs  = header.findIndex(h => h === "price_with_us" || h === "pricewithus");
@@ -928,7 +928,7 @@ export default function App() {
       const expiryMonthCounts = {};
       for (let i = 1; i < lines.length; i++) {
         const cols2 = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g,""));
-        if ((cols2[iStatus]||"").toLowerCase() !== "enabled") continue;
+        { const sv2 = (cols2[iStatus]||"").toLowerCase(); if (sv2 === "disabled" || sv2 === "disabling..." || sv2 === "hidden") continue; }
         const expiryRaw2 = iExpiry >= 0 ? cols2[iExpiry] : "";
         if (!expiryRaw2 || expiryRaw2 === "—") continue;
         const expD = new Date(expiryRaw2);
@@ -2582,7 +2582,7 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
         const iWithSup  = idx("with_support"); const iCreated = idx("created_at");
         for (let i = 1; i < lines.length; i++) {
           const c = lines[i].split(sep).map(v => v.trim().replace(/^"|"$/g,""));
-          if (iStatus >= 0 && c[iStatus]?.toLowerCase() !== "enabled") continue;
+          const statusVal1 = (c[iStatus]||"").toLowerCase(); if (iStatus >= 0 && (statusVal1 === "disabled" || statusVal1 === "disabling..." || statusVal1 === "hidden")) continue;
           const ws = iWithSup >= 0 ? parseInt(c[iWithSup]) : 0;
           const expiry = iExpiry >= 0 ? c[iExpiry] : "";
           const today = new Date(); today.setHours(0,0,0,0);
@@ -2979,7 +2979,7 @@ function LicenceTable({ files, lang, expiryDays }) {
               iWithSup=idx("with_support"),iCreated=idx("created_at");
         for (let i=1; i<lines.length; i++) {
           const c = lines[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,""));
-          if (iStatus>=0 && c[iStatus]?.toLowerCase()!=="enabled") continue;
+          const statusVal2 = (c[iStatus]||"").toLowerCase(); if (iStatus>=0 && (statusVal2==="disabled"||statusVal2==="disabling..."||statusVal2==="hidden")) continue;
           const ws=iWithSup>=0?parseInt(c[iWithSup]):0;
           const expiry=iExpiry>=0?c[iExpiry]:"";
           const today=new Date(); today.setHours(0,0,0,0);
