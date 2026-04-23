@@ -1369,6 +1369,7 @@ export default function App() {
     }
     setMasterRows(rows);
     setMasterLoaded(new Date());
+    setShowMasterLogin(false); // fermer la modale après chargement
 
     // Build client list by domain
     const domainMap = {};
@@ -1407,7 +1408,7 @@ export default function App() {
     setV2Tab("dashboard");
   };
 
-  const masterSearchResults = masterSearch.length >= 2
+  const masterSearchResults = masterSearch.length >= 1
     ? masterClients.filter(c =>
         c.domain.includes(masterSearch.toLowerCase()) ||
         c.company?.toLowerCase().includes(masterSearch.toLowerCase())
@@ -1706,22 +1707,112 @@ export default function App() {
 
         {/* ── Contenu selon onglet ── */}
         {analysisEntries.length === 0 && (
-          /* État vide — invitation à uploader */
-          <div style={{
-            textAlign:"center", padding:"3rem 1rem",
-            border:"1px dashed var(--border)", borderRadius:"12px",
-            marginTop:"1rem", color:"var(--muted)"
-          }}>
-            <div style={{fontSize:"2.5rem",marginBottom:"1rem"}}>📊</div>
-            <div style={{fontWeight:600,fontSize:"1rem",color:"var(--text)",marginBottom:".5rem"}}>
-              {lang==="fr"?"Importez un fichier CSV pour commencer":"Import a CSV file to get started"}
+          masterLoaded ? (
+            /* Mode base globale — recherche client */
+            <div style={{maxWidth:"520px", margin:"2rem auto 0"}}>
+              <div style={{textAlign:"center", marginBottom:"1.5rem"}}>
+                <div style={{fontSize:"2rem", marginBottom:".5rem"}}>🔍</div>
+                <div style={{fontWeight:700, fontSize:"1rem", color:"var(--text)", marginBottom:".25rem"}}>
+                  {lang==="fr" ? "Rechercher un client" : "Search a client"}
+                </div>
+                <div style={{fontSize:".78rem", color:"var(--muted)"}}>
+                  {lang==="fr"
+                    ? `Base chargée · ${masterClients.length} clients · ${masterRows.length.toLocaleString()} licences`
+                    : `Base loaded · ${masterClients.length} clients · ${masterRows.length.toLocaleString()} licences`}
+                </div>
+              </div>
+
+              <div style={{position:"relative"}}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={masterSearch}
+                  onChange={e => setMasterSearch(e.target.value)}
+                  placeholder={lang==="fr" ? "Domaine ou nom client (ex: acme.com)…" : "Domain or client name (e.g. acme.com)…"}
+                  style={{
+                    width:"100%", padding:".75rem 1rem .75rem 2.75rem",
+                    borderRadius:"10px", border:"1px solid var(--border)",
+                    background:"var(--surface)", color:"var(--text)",
+                    fontSize:"1rem", outline:"none",
+                    boxShadow:"0 2px 8px rgba(0,0,0,.08)"
+                  }}
+                  onFocus={e=>e.target.style.borderColor="var(--accent)"}
+                  onBlur={e=>e.target.style.borderColor="var(--border)"}
+                />
+                <span style={{position:"absolute",left:".85rem",top:"50%",transform:"translateY(-50%)",fontSize:"1.1rem",pointerEvents:"none"}}>🔎</span>
+                {masterSearch && (
+                  <button onClick={()=>setMasterSearch("")} style={{
+                    position:"absolute", right:".75rem", top:"50%", transform:"translateY(-50%)",
+                    background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:".9rem"
+                  }}>✕</button>
+                )}
+              </div>
+
+              {/* Résultats autocomplete */}
+              {masterSearch.length >= 1 && (
+                <div style={{
+                  border:"1px solid var(--border)", borderRadius:"10px",
+                  overflow:"hidden", marginTop:"6px",
+                  boxShadow:"0 4px 16px rgba(0,0,0,.1)"
+                }}>
+                  {masterSearchResults.length > 0 ? masterSearchResults.map((c, i) => (
+                    <div key={i}
+                      onClick={()=>{ handleMasterSelectClient(c.domain); }}
+                      style={{
+                        padding:".75rem 1rem", cursor:"pointer", background:"var(--surface)",
+                        borderBottom: i < masterSearchResults.length-1 ? "0.5px solid var(--border)" : "none",
+                        display:"flex", justifyContent:"space-between", alignItems:"center",
+                        transition:"background .1s"
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.background="var(--bg2,#f0f2f5)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="var(--surface)"}
+                    >
+                      <div>
+                        <div style={{fontWeight:600, fontSize:".9rem", color:"var(--text)"}}>{c.domain}</div>
+                        {c.company && c.company !== "—" && (
+                          <div style={{fontSize:".75rem", color:"var(--muted)", marginTop:"1px"}}>{c.company}</div>
+                        )}
+                      </div>
+                      <div style={{textAlign:"right", flexShrink:0}}>
+                        <span style={{
+                          fontSize:".78rem", fontWeight:700, color:"var(--accent)",
+                          padding:"2px 8px", borderRadius:"99px",
+                          background:"rgba(232,98,10,.08)", border:"1px solid rgba(232,98,10,.2)"
+                        }}>{c.count} lic. →</span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{padding:"1rem", textAlign:"center", color:"var(--muted)", fontSize:".82rem"}}>
+                      {lang==="fr" ? "Aucun client trouvé" : "No client found"}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {masterSearch.length === 0 && (
+                <p style={{textAlign:"center", fontSize:".75rem", color:"var(--muted)", marginTop:"1rem"}}>
+                  {lang==="fr" ? "Tapez au moins 1 caractère pour rechercher" : "Type at least 1 character to search"}
+                </p>
+              )}
             </div>
-            <div style={{fontSize:".8rem",lineHeight:1.6}}>
-              {lang==="fr"
-                ? "Exportez vos licences depuis le portail TSplus, puis glissez le fichier ici."
-                : "Export your licences from the TSplus portal, then drop the file here."}
+          ) : (
+            /* État vide normal */
+            <div style={{
+              textAlign:"center", padding:"3rem 1rem",
+              border:"1px dashed var(--border)", borderRadius:"12px",
+              marginTop:"1rem", color:"var(--muted)"
+            }}>
+              <div style={{fontSize:"2.5rem",marginBottom:"1rem"}}>📊</div>
+              <div style={{fontWeight:600,fontSize:"1rem",color:"var(--text)",marginBottom:".5rem"}}>
+                {lang==="fr"?"Importez un fichier CSV pour commencer":"Import a CSV file to get started"}
+              </div>
+              <div style={{fontSize:".8rem",lineHeight:1.6}}>
+                {lang==="fr"
+                  ? "Exportez vos licences depuis le portail TSplus, puis glissez le fichier ici."
+                  : "Export your licences from the TSplus portal, then drop the file here."}
+              </div>
             </div>
-          </div>
+          )
         )}
 
         {/* Vue d'ensemble — Dashboard + Licences + Co-terming */}
