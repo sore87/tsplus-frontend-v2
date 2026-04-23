@@ -2622,7 +2622,7 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
           )}
         </div>
       )}
-      </div>{/* end max-width */}
+      </div>
     </div>
   );
 }
