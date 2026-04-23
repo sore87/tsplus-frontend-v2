@@ -2015,31 +2015,135 @@ export default function App() {
 
         {/* Générer */}
         {analysisEntries.length > 0 && v2Tab === "generate" && (
-          <div className="layout" style={{direction:"ltr"}}>
-            <div className="col-main" style={{order:2}}>
+          <div className="layout">
+            {/* ── Colonne gauche : params + PDF ── */}
+            <div className="col-main">
               {error && <div className="alert alert-error" style={{marginBottom:"1rem"}}>⚠️ {error}</div>}
               {summary && <div className="alert alert-ok" style={{marginBottom:"1rem"}}>✅ {summary.batch?t.summaryBatch(summary.count):t.summarySingle}</div>}
-              {/* Bouton générer Excel */}
-              <div className="generate-sticky-wrap" style={{display:"flex",gap:"8px",alignItems:"stretch"}}>
-                <button className="btn-generate" style={{marginBottom:0,flex:1}} onClick={handleSubmit} disabled={loading}>
-                  {loading
-                    ? <span style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",width:"100%",padding:"2px 0"}}>
-                        <span style={{fontSize:".85rem",fontWeight:500}}>{genStep}</span>
-                        <span style={{width:"100%",height:"4px",background:"rgba(255,255,255,.25)",borderRadius:"2px",overflow:"hidden"}}>
-                          <span style={{display:"block",height:"100%",borderRadius:"2px",background:"rgba(255,255,255,.9)",width:`${Math.round((genStepIdx+1)/GEN_STEPS_COUNT*100)}%`,transition:"width 1.2s ease"}}/>
-                        </span>
-                      </span>
-                    : files.length>1?t.btnGenerateBatch(files.length):t.btnGenerate}
-                </button>
-              </div>
-              <p style={{fontSize:".73rem",color:"var(--muted)",textAlign:"center",margin:".35rem 0 1rem",lineHeight:"1.4"}}>
-                🔒 {lang==="fr"
-                  ? "Vos fichiers sont supprimés immédiatement après téléchargement — aucun stockage."
-                  : "Your files are deleted immediately after download — no storage."}
-              </p>
 
+              {/* Paramètres co-terming + devise */}
+              <div className="card" style={{marginBottom:"1rem"}}>
+                <h3 style={{marginBottom:".5rem"}}>{t.cotermTitle}</h3>
+                <p className="coterm-hint" style={{marginBottom:".75rem"}}>{t.cotermHint}</p>
+                <div className="coterm-params" style={{marginBottom:".75rem"}}>
+                  <div className="param-row">
+                    <label className="param-label">{t.discountLabel}</label>
+                    <div className="input-with-unit"><input type="number" min="0" max="100" value={discount} onChange={e=>setDiscount(parseInt(e.target.value))}/><span className="unit">%</span></div>
+                  </div>
+                  <div className="param-row">
+                    <label className="param-label">{t.expiryLabel}</label>
+                    <div className="input-with-unit"><input type="number" min="0" value={expiryDays} onChange={e=>setExpiryDays(parseInt(e.target.value))}/><span className="unit">{t.days}</span></div>
+                  </div>
+                  <div className="param-row">
+                    <label className="param-label">{t.currencyLabel}</label>
+                    <select value={currency} onChange={e => { setCurrency(e.target.value); setFxManual(""); }}>{["EUR","USD","GBP","AUD","CAD","CHF","JPY","SGD","NZD","NOK","SEK","DKK","HKD","BRL","MXN","INR","ZAR","PLN","CZK","HUF","RON","BGN","TRY","AED","SAR","THB","IDR","MYR","PHP","VND"].map(c=><option key={c} value={c}>{c}</option>)}</select>
+                  </div>
+                  {currency!=="EUR" && currency!=="USD" && (
+                    <div className="param-row">
+                      <label className="param-label">{t.fxLabel} (USD→{currency})</label>
+                      <div className="input-with-unit">
+                        <input type="number" step="0.0001" min="0" placeholder={fxRate?fxRate.toFixed(4):"…"} value={fxManual} onChange={e => setFxManual(e.target.value)} />
+                        <span className="unit" style={{cursor:"pointer"}} onClick={fetchFxRate} title="Actualiser">↻</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {cotermDates.map((d,i)=>(
+                  <div key={i} className="coterm-date-row">
+                    <span className="coterm-date-label">{`Option ${String.fromCharCode(65+i)}`}</span>
+                    <input type="date" value={d} onChange={e=>{const u=[...cotermDates];u[i]=e.target.value;setCotermDates(u);}} min={new Date().toISOString().slice(0,10)}/>
+                    {d && <button className="coterm-date-clear" onClick={()=>{const u=[...cotermDates];u[i]="";setCotermDates(u);}}>✕</button>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Section PDF */}
+              <div className="card">
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".6rem"}}>
+                  <h3 style={{margin:0,color:"#1A3C5E"}}>📄 {lang==="fr"?"Rapport PDF client":"Client PDF report"}</h3>
+                  <span className="badge-experimental">{lang==="fr"?"EXPÉRIMENTAL":"EXPERIMENTAL"}</span>
+                </div>
+                <p className="coterm-hint" style={{marginBottom:".75rem"}}>{lang==="fr"?"Document de proposition généré en parallèle du fichier Excel.":"Commercial proposal document generated alongside the Excel file."}</p>
+                <div style={{marginBottom:".6rem"}}>
+                  <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"OPTIONS CO-TERMING À INCLURE":"CO-TERMING OPTIONS TO INCLUDE"}</label>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {["A","B","C"].map(opt=>(
+                      <label key={opt} style={{display:"flex",alignItems:"center",gap:"5px",cursor:"pointer",fontSize:".78rem",padding:".3rem .6rem",borderRadius:"6px",border:`1px solid ${pdfOptions.includes(opt)?"var(--accent)":"var(--border)"}`,background:pdfOptions.includes(opt)?"rgba(232,98,10,.08)":"transparent",color:pdfOptions.includes(opt)?"var(--accent)":"var(--muted)",transition:"all .15s"}}>
+                        <input type="checkbox" style={{display:"none"}} checked={pdfOptions.includes(opt)} onChange={()=>setPdfOptions(p=>p.includes(opt)?p.filter(x=>x!==opt):[...p,opt].sort())}/>
+                        Option {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{marginBottom:".75rem"}}>
+                  <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"OPTION RECOMMANDÉE":"RECOMMENDED OPTION"}</label>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {[...pdfOptions,"none"].map(opt=>(
+                      <label key={opt} style={{display:"flex",alignItems:"center",gap:"5px",cursor:"pointer",fontSize:".78rem",padding:".3rem .6rem",borderRadius:"6px",border:`1px solid ${pdfCoterm===opt?"var(--accent)":"var(--border)"}`,background:pdfCoterm===opt?"rgba(232,98,10,.08)":"transparent",color:pdfCoterm===opt?"var(--accent)":"var(--muted)",transition:"all .15s"}}>
+                        <input type="radio" style={{display:"none"}} name="pdfCoterm" checked={pdfCoterm===opt} onChange={()=>setPdfCoterm(opt)}/>
+                        {opt==="none"?(lang==="fr"?"Aucune":"None"):(`Option ${opt}`)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{marginBottom:".75rem"}}>
+                  <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"LOGO CLIENT":"CLIENT LOGO"} <span style={{fontWeight:400,color:"var(--muted)",textTransform:"none",letterSpacing:0}}>{lang==="fr"?"— optionnel":"— optional"}</span></label>
+                  <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                    <label style={{display:"flex",alignItems:"center",gap:"6px",padding:".4rem .75rem",borderRadius:"8px",border:"1px dashed var(--border)",cursor:"pointer",fontSize:".78rem",color:"var(--muted)",flex:1,justifyContent:"center"}}>
+                      <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                        const file=e.target.files[0];
+                        if(!file) return;
+                        const reader=new FileReader();
+                        reader.onload=ev=>setPdfLogoManual(ev.target.result.split(",")[1]);
+                        reader.readAsDataURL(file);
+                        e.target.value="";
+                      }}/>
+                      {pdfLogoManual ? "✅ Logo importé" : "⬆ Importer un logo"}
+                    </label>
+                    {pdfLogoManual && <button onClick={()=>setPdfLogoManual("")} style={{padding:".4rem .6rem",borderRadius:"7px",border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer",fontSize:".75rem"}}>✕</button>}
+                  </div>
+                  {!pdfLogoManual && activeAnalysis?.email_domain && (
+                    <p style={{fontSize:".7rem",color:"var(--muted)",marginTop:".3rem"}}>
+                      {lang==="fr"?"Logo détecté automatiquement depuis le domaine":"Logo auto-detected from domain"} <strong>{activeAnalysis.email_domain}</strong>
+                    </p>
+                  )}
+                </div>
+                {[
+                  {label:lang==="fr"?"Exclure l'inventaire":"Exclude inventory",    val:!pdfShowInventory, set:()=>setPdfShowInventory(v=>!v)},
+                  {label:lang==="fr"?"Masquer les prix":"Hide prices",              val:!pdfShowPrices,    set:()=>setPdfShowPrices(v=>!v)},
+                  {label:lang==="fr"?"Inclure les licences désactivées":"Include disabled licences", val:pdfShowDisabled, set:()=>setPdfShowDisabled(v=>!v)},
+                ].map(({label,val,set},i)=>(
+                  <div key={i} onClick={set} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid var(--border)",cursor:"pointer",userSelect:"none"}}>
+                    <span style={{fontSize:".8rem",color:"var(--text)"}}>{label}</span>
+                    <div style={{width:"36px",height:"20px",borderRadius:"99px",flexShrink:0,background:val?"var(--accent)":"var(--border)",position:"relative",transition:"background .15s"}}>
+                      <div style={{position:"absolute",top:"2px",left:val?"18px":"2px",width:"16px",height:"16px",borderRadius:"50%",background:"#fff",transition:"left .15s"}}/>
+                    </div>
+                  </div>
+                ))}
+                <div style={{marginBottom:".85rem",marginTop:".6rem"}}>
+                  <div style={{fontSize:".75rem",color:"var(--muted)",marginBottom:".3rem"}}>{lang==="fr"?"Message personnalisé (avant les options)":"Custom message (before options)"}</div>
+                  <textarea value={pdfCustomMessage} onChange={e=>setPdfCustomMessage(e.target.value)}
+                    placeholder={lang==="fr"?"Ex : Suite à notre entretien du 15 avril…":"E.g. Following our meeting on April 15th…"}
+                    rows={3} style={{width:"100%",fontSize:".8rem",padding:".5rem .65rem",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontFamily:"inherit",resize:"vertical",outline:"none"}}
+                    onFocus={e=>e.target.style.borderColor="var(--accent)"} onBlur={e=>e.target.style.borderColor="var(--border)"}/>
+                </div>
+                <button className="btn-pdf" onClick={handlePdf} disabled={pdfLoading || files.length === 0 || (isBatch && activeTab === "global")}>
+                  {pdfLoading ? <span className="spinner"/> : t.pdfBtnPreview}
+                </button>
+                {pdfPreviewUrl && (
+                  <div ref={pdfPreviewRef} style={{marginTop:".75rem"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:".4rem"}}>
+                      <span style={{fontSize:".75rem",color:"var(--muted)"}}>{lang==="fr"?"Aperçu (Ctrl+P pour imprimer)":"Preview (Ctrl+P to print)"}</span>
+                      <button onClick={()=>window.open(pdfPreviewUrl,"_blank")} style={{fontSize:".72rem",padding:"2px 8px",borderRadius:"5px",border:"1px solid var(--border)",background:"transparent",color:"var(--accent)",cursor:"pointer"}}>{lang==="fr"?"Ouvrir ↗":"Open ↗"}</button>
+                    </div>
+                    <iframe src={pdfPreviewUrl} style={{width:"100%",height:"520px",border:"1px solid var(--border)",borderRadius:"8px"}} title="PDF Preview"/>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview analyse */}
               {showPreview && (
-                <div className="preview-area">
+                <div className="preview-area" style={{marginTop:"1rem"}}>
                   {isBatch && (
                     <div className="tab-bar">
                       <button className={`tab-btn${activeTab==="global"?" active":""}`} onClick={()=>setActiveTab("global")}>{t.tabGlobal}</button>
@@ -2063,152 +2167,55 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="col-side" style={{order:1}}>
-              <div className="side-section-primary">
-                <div className="card">
-                  <h3>{t.agentTitle}</h3>
-                  <p className="coterm-hint">{t.agentHint}</p>
-                  <div className="coterm-params">
-                    <div className="param-row">
-                      <label className="param-label">{t.senderLabel}</label>
-                      <input value={sender} onChange={e=>setSender(e.target.value)} placeholder={t.senderPlaceholder}/>
-                    </div>
-                    <div className="param-row">
-                      <label className="param-label">{t.senderEmailLabel}</label>
-                      <input type="email" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} placeholder={t.senderEmailPlaceholder}/>
-                    </div>
-                    <div className="param-row">
-                      <label className="param-label">{t.discountLabel}</label>
-                      <div className="input-with-unit"><input type="number" min="0" max="100" value={discount} onChange={e=>setDiscount(parseInt(e.target.value))}/><span className="unit">%</span></div>
-                    </div>
-                    <div className="param-row">
-                      <label className="param-label">{t.expiryLabel}</label>
-                      <div className="input-with-unit"><input type="number" min="0" value={expiryDays} onChange={e=>setExpiryDays(parseInt(e.target.value))}/><span className="unit">{t.days}</span></div>
-                    </div>
-                    <div className="param-row">
-                      <label className="param-label">{t.currencyLabel}</label>
-                      <select value={currency} onChange={e => { setCurrency(e.target.value); setFxManual(""); }}>{["EUR","USD","GBP","AUD","CAD","CHF","JPY","SGD","NZD","NOK","SEK","DKK","HKD","BRL","MXN","INR","ZAR","PLN","CZK","HUF","RON","BGN","TRY","AED","SAR","THB","IDR","MYR","PHP","VND"].map(c=><option key={c} value={c}>{c}</option>)}</select>
-                    </div>
-                    {currency!=="EUR" && currency!=="USD" && (
-                      <div className="param-row">
-                        <label className="param-label">{t.fxLabel} (USD→{currency})</label>
-                        <div className="input-with-unit">
-                          <input type="number" step="0.0001" min="0" placeholder={fxRate?fxRate.toFixed(4):"…"} value={fxManual} onChange={e => setFxManual(e.target.value)} />
-                          <span className="unit" style={{cursor:"pointer"}} onClick={fetchFxRate} title="Actualiser">↻</span>
-                        </div>
-                      </div>
-                    )}
+
+            {/* ── Colonne droite : identité + onglets Excel ── */}
+            <div className="col-side">
+              <div className="card">
+                <h3>{t.agentTitle}</h3>
+                <p className="coterm-hint" style={{marginBottom:".75rem"}}>{t.agentHint}</p>
+                <div className="coterm-params">
+                  <div className="param-row">
+                    <label className="param-label">{t.senderLabel}</label>
+                    <input value={sender} onChange={e=>setSender(e.target.value)} placeholder={t.senderPlaceholder}/>
                   </div>
-                  <div style={{marginTop:".75rem"}}>
-                    <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{t.cotermTitle}</label>
-                    <p className="coterm-hint" style={{marginBottom:".6rem"}}>{t.cotermHint}</p>
-                    {cotermDates.map((d,i)=>(
-                      <div key={i} className="coterm-date-row">
-                        <span className="coterm-date-label">{`Option ${String.fromCharCode(65+i)}`}</span>
-                        <input type="date" value={d} onChange={e=>{const u=[...cotermDates];u[i]=e.target.value;setCotermDates(u);}} min={new Date().toISOString().slice(0,10)}/>
-                        {d && <button className="coterm-date-clear" onClick={()=>{const u=[...cotermDates];u[i]="";setCotermDates(u);}}>✕</button>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="card">
-                  <h3>{t.sheetsTitle}</h3>
-                  <div className="toggle-grid">
-                    {Object.entries(t.sheetLabels).map(([k,label])=>(
-                      <div key={k} className="toggle-wrapper" onMouseEnter={()=>setTooltip(k)} onMouseLeave={()=>setTooltip(null)}>
-                        <label className={`toggle ${sheets[k]?"on":""}`}>
-                          <input type="checkbox" checked={sheets[k]} onChange={()=>toggleSheet(k)}/>
-                          {label}
-                        </label>
-                        {tooltip===k && <div className="tooltip">{t.tooltips[k]}</div>}
-                      </div>
-                    ))}
+                  <div className="param-row">
+                    <label className="param-label">{t.senderEmailLabel}</label>
+                    <input type="email" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} placeholder={t.senderEmailPlaceholder}/>
                   </div>
                 </div>
               </div>
-              <div className="side-section-secondary">
-                <div className="card">
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".6rem"}}>
-                    <h3 style={{margin:0,color:"#1A3C5E"}}>📄 {lang==="fr"?"Rapport PDF client":"Client PDF report"}</h3>
-                    <span className="badge-experimental">{lang==="fr"?"EXPÉRIMENTAL":"EXPERIMENTAL"}</span>
-                  </div>
-                  <p className="coterm-hint" style={{marginBottom:".75rem"}}>{lang==="fr"?"Document de proposition généré en parallèle du fichier Excel.":"Commercial proposal document generated alongside the Excel file."}</p>
-                  <div style={{marginBottom:".6rem"}}>
-                    <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"OPTIONS CO-TERMING À INCLURE":"CO-TERMING OPTIONS TO INCLUDE"}</label>
-                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                      {["A","B","C"].map(opt=>(
-                        <label key={opt} style={{display:"flex",alignItems:"center",gap:"5px",cursor:"pointer",fontSize:".78rem",padding:".3rem .6rem",borderRadius:"6px",border:`1px solid ${pdfOptions.includes(opt)?"var(--accent)":"var(--border)"}`,background:pdfOptions.includes(opt)?"rgba(232,98,10,.08)":"transparent",color:pdfOptions.includes(opt)?"var(--accent)":"var(--muted)",transition:"all .15s"}}>
-                          <input type="checkbox" style={{display:"none"}} checked={pdfOptions.includes(opt)} onChange={()=>setPdfOptions(p=>p.includes(opt)?p.filter(x=>x!==opt):[...p,opt].sort())}/>
-                          Option {opt}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{marginBottom:".75rem"}}>
-                    <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"OPTION RECOMMANDÉE":"RECOMMENDED OPTION"}</label>
-                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                      {[...pdfOptions,"none"].map(opt=>(
-                        <label key={opt} style={{display:"flex",alignItems:"center",gap:"5px",cursor:"pointer",fontSize:".78rem",padding:".3rem .6rem",borderRadius:"6px",border:`1px solid ${pdfCoterm===opt?"var(--accent)":"var(--border)"}`,background:pdfCoterm===opt?"rgba(232,98,10,.08)":"transparent",color:pdfCoterm===opt?"var(--accent)":"var(--muted)",transition:"all .15s"}}>
-                          <input type="radio" style={{display:"none"}} name="pdfCoterm" checked={pdfCoterm===opt} onChange={()=>setPdfCoterm(opt)}/>
-                          {opt==="none"?(lang==="fr"?"Aucune":"None"):(`Option ${opt}`)}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{marginBottom:".75rem"}}>
-                    <label className="param-label" style={{display:"block",marginBottom:".4rem"}}>{lang==="fr"?"LOGO CLIENT":"CLIENT LOGO"} <span style={{fontWeight:400,color:"var(--muted)",textTransform:"none",letterSpacing:0}}>{lang==="fr"?"— optionnel":"— optional"}</span></label>
-                    <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                      <label style={{display:"flex",alignItems:"center",gap:"6px",padding:".4rem .75rem",borderRadius:"8px",border:"1px dashed var(--border)",cursor:"pointer",fontSize:".78rem",color:"var(--muted)",flex:1,justifyContent:"center"}}>
-                        <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
-                          const file=e.target.files[0];
-                          if(!file) return;
-                          const reader=new FileReader();
-                          reader.onload=ev=>setPdfLogoManual(ev.target.result.split(",")[1]);
-                          reader.readAsDataURL(file);
-                          e.target.value="";
-                        }}/>
-                        {pdfLogoManual ? "✅ Logo importé" : "⬆ Importer un logo"}
+              <div className="card" style={{marginTop:"1rem"}}>
+                <h3>{t.sheetsTitle}</h3>
+                <div className="toggle-grid">
+                  {Object.entries(t.sheetLabels).map(([k,label])=>(
+                    <div key={k} className="toggle-wrapper" onMouseEnter={()=>setTooltip(k)} onMouseLeave={()=>setTooltip(null)}>
+                      <label className={`toggle ${sheets[k]?"on":""}`}>
+                        <input type="checkbox" checked={sheets[k]} onChange={()=>toggleSheet(k)}/>
+                        {label}
                       </label>
-                      {pdfLogoManual && <button onClick={()=>setPdfLogoManual("")} style={{padding:".4rem .6rem",borderRadius:"7px",border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer",fontSize:".75rem"}}>✕</button>}
-                    </div>
-                    {!pdfLogoManual && activeAnalysis?.email_domain && (
-                      <p style={{fontSize:".7rem",color:"var(--muted)",marginTop:".3rem"}}>
-                        {lang==="fr"?"Logo détecté automatiquement depuis le domaine":"Logo auto-detected from domain"} <strong>{activeAnalysis.email_domain}</strong>
-                      </p>
-                    )}
-                  </div>
-                  {[
-                    {label:lang==="fr"?"Exclure l'inventaire":"Exclude inventory",    val:!pdfShowInventory, set:()=>setPdfShowInventory(v=>!v)},
-                    {label:lang==="fr"?"Masquer les prix":"Hide prices",              val:!pdfShowPrices,    set:()=>setPdfShowPrices(v=>!v)},
-                    {label:lang==="fr"?"Inclure les licences désactivées":"Include disabled licences", val:pdfShowDisabled, set:()=>setPdfShowDisabled(v=>!v)},
-                  ].map(({label,val,set},i)=>(
-                    <div key={i} onClick={set} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid var(--border)",cursor:"pointer",userSelect:"none"}}>
-                      <span style={{fontSize:".8rem",color:"var(--text)"}}>{label}</span>
-                      <div style={{width:"36px",height:"20px",borderRadius:"99px",flexShrink:0,background:val?"var(--accent)":"var(--border)",position:"relative",transition:"background .15s"}}>
-                        <div style={{position:"absolute",top:"2px",left:val?"18px":"2px",width:"16px",height:"16px",borderRadius:"50%",background:"#fff",transition:"left .15s"}}/>
-                      </div>
+                      {tooltip===k && <div className="tooltip">{t.tooltips[k]}</div>}
                     </div>
                   ))}
-                  <div style={{marginBottom:".85rem",marginTop:".6rem"}}>
-                    <div style={{fontSize:".75rem",color:"var(--muted)",marginBottom:".3rem"}}>{lang==="fr"?"Message personnalisé (avant les options)":"Custom message (before options)"}</div>
-                    <textarea value={pdfCustomMessage} onChange={e=>setPdfCustomMessage(e.target.value)}
-                      placeholder={lang==="fr"?"Ex : Suite à notre entretien du 15 avril…":"E.g. Following our meeting on April 15th…"}
-                      rows={3} style={{width:"100%",fontSize:".8rem",padding:".5rem .65rem",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontFamily:"inherit",resize:"vertical",outline:"none"}}
-                      onFocus={e=>e.target.style.borderColor="var(--accent)"} onBlur={e=>e.target.style.borderColor="var(--border)"}/>
-                  </div>
-                  <button className="btn-pdf" onClick={handlePdf} disabled={pdfLoading || files.length === 0 || (isBatch && activeTab === "global")}>
-                    {pdfLoading ? <span className="spinner"/> : t.pdfBtnPreview}
-                  </button>
-                  {pdfPreviewUrl && (
-                    <div ref={pdfPreviewRef} style={{marginTop:".75rem"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:".4rem"}}>
-                        <span style={{fontSize:".75rem",color:"var(--muted)"}}>{lang==="fr"?"Aperçu (Ctrl+P pour imprimer)":"Preview (Ctrl+P to print)"}</span>
-                        <button onClick={()=>window.open(pdfPreviewUrl,"_blank")} style={{fontSize:".72rem",padding:"2px 8px",borderRadius:"5px",border:"1px solid var(--border)",background:"transparent",color:"var(--accent)",cursor:"pointer"}}>{lang==="fr"?"Ouvrir ↗":"Open ↗"}</button>
-                      </div>
-                      <iframe src={pdfPreviewUrl} style={{width:"100%",height:"520px",border:"1px solid var(--border)",borderRadius:"8px"}} title="PDF Preview"/>
-                    </div>
-                  )}
                 </div>
+              </div>
+              <div style={{marginTop:"1rem"}}>
+                <div className="generate-sticky-wrap" style={{display:"flex",gap:"8px",alignItems:"stretch"}}>
+                  <button className="btn-generate" style={{marginBottom:0,flex:1}} onClick={handleSubmit} disabled={loading}>
+                    {loading
+                      ? <span style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",width:"100%",padding:"2px 0"}}>
+                          <span style={{fontSize:".85rem",fontWeight:500}}>{genStep}</span>
+                          <span style={{width:"100%",height:"4px",background:"rgba(255,255,255,.25)",borderRadius:"2px",overflow:"hidden"}}>
+                            <span style={{display:"block",height:"100%",borderRadius:"2px",background:"rgba(255,255,255,.9)",width:`${Math.round((genStepIdx+1)/GEN_STEPS_COUNT*100)}%`,transition:"width 1.2s ease"}}/>
+                          </span>
+                        </span>
+                      : files.length>1?t.btnGenerateBatch(files.length):t.btnGenerate}
+                  </button>
+                </div>
+                <p style={{fontSize:".73rem",color:"var(--muted)",textAlign:"center",margin:".35rem 0 0",lineHeight:"1.4"}}>
+                  🔒 {lang==="fr"
+                    ? "Fichiers supprimés après téléchargement."
+                    : "Files deleted after download."}
+                </p>
               </div>
             </div>
           </div>
