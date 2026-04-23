@@ -1375,7 +1375,7 @@ export default function App() {
         </div>
       )}
 
-      <main className={`main${analysisEntries.length > 0 && v2Tab === "licences" ? " main-full" : ""}`}>
+      <main className={`main${analysisEntries.length > 0 && v2Tab === "dashboard" ? " main-full" : ""}`}>
 
         {/* ── Top bar ── */}
         <div style={{
@@ -1456,9 +1456,7 @@ export default function App() {
         {analysisEntries.length > 0 && (
           <nav className="v2-nav">
             {[
-              {key:"dashboard", icon:"📊", label:"Dashboard",
-               badge: null},
-              {key:"licences",  icon:"📋", label:lang==="fr"?"Licences":"Licences",
+              {key:"dashboard", icon:"📊", label:lang==="fr"?"Vue d'ensemble":"Overview",
                badge: analysisEntries.reduce((s,a)=>s+(a.data?.total||0),0)||null},
               {key:"generate",  icon:"⚙️", label:lang==="fr"?"Générer":"Generate",
                badge: null},
@@ -1500,18 +1498,74 @@ export default function App() {
           </div>
         )}
 
-        {/* Dashboard */}
+        {/* Vue d'ensemble — Dashboard + Licences + Co-terming */}
         {analysisEntries.length > 0 && v2Tab === "dashboard" && (
-          <ParkDashboard analyses={analysisEntries} lang={lang} expiryDays={expiryDays} t={t} files={files} />
-        )}
+          <>
+            {/* KPI Dashboard style portail */}
+            <OverviewDashboard analyses={analysisEntries} lang={lang} expiryDays={expiryDays} />
 
-        {/* Licences — full width */}
-        {analysisEntries.length > 0 && v2Tab === "licences" && (
-          <LicenceTable files={files} lang={lang} expiryDays={expiryDays} />
+            {/* Tableau de licences full width */}
+            <div style={{marginTop:"1.5rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:".75rem"}}>
+                <div style={{width:"3px",height:"18px",background:"#1A3C5E",borderRadius:"2px"}}/>
+                <span style={{fontSize:".82rem",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em"}}>
+                  {lang==="fr"?"Licences":"Licences"}
+                </span>
+              </div>
+              <LicenceTable files={files} lang={lang} expiryDays={expiryDays} />
+            </div>
+
+            {/* Co-terming candidates */}
+            {analysisEntries.length === 1 && analysisEntries[0]?.data?.coterm_options?.length > 0 && (
+              <div style={{marginTop:"1.5rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:".75rem"}}>
+                  <div style={{width:"3px",height:"18px",background:"#1A3C5E",borderRadius:"2px"}}/>
+                  <span style={{fontSize:".82rem",fontWeight:700,color:"var(--text)",textTransform:"uppercase",letterSpacing:".05em"}}>
+                    {lang==="fr"?"Dates de co-terming candidates":"Co-terming candidates"}
+                  </span>
+                  <span style={{fontSize:".72rem",color:"var(--accent)",fontWeight:600,padding:"2px 8px",borderRadius:"99px",background:"rgba(232,98,10,.1)",border:"1px solid rgba(232,98,10,.2)"}}>
+                    {lang==="fr"?`remise partenaire -${discount}% appliquée`:`partner discount -${discount}% applied`}
+                  </span>
+                </div>
+                <div className="coterm-rich-grid">
+                  {analysisEntries[0].data.coterm_options.map((opt, i) => {
+                    const label = lang==="en" ? opt.label_en : opt.label_fr;
+                    const HDRS = ["#1A3A5C","#1E4E7A","#1a6ea3"];
+                    const hasCosts = opt.total_cost > 0;
+                    const showSavings = analysisEntries[0].data.coterm_options.every(o => o.savings_vs_a > 0);
+                    return (
+                      <div key={opt.option} className="coterm-rich-card">
+                        <div className="coterm-rich-header" style={{background:HDRS[i]}}>
+                          <span className="coterm-rich-opt">Option {opt.option}</span>
+                          <span className="coterm-rich-lbl-hdr">{label}</span>
+                        </div>
+                        <div className="coterm-rich-body">
+                          <div className="coterm-rich-date">{opt.date_display}</div>
+                          <div className="coterm-rich-meta">{opt.rate}% / an · ≃ {opt.duration_months ?? opt.duration_years*12} mois</div>
+                          {hasCosts && <>
+                            <hr className="coterm-rich-hr"/>
+                            <div className="coterm-rich-row">
+                              <span className="coterm-rich-lbl">{lang==="fr"?"Coût total":"Total cost"}</span>
+                              <span className="coterm-rich-annual">{opt.total_cost?.toLocaleString("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0})}</span>
+                            </div>
+                            <div className="coterm-rich-row">
+                              <span className="coterm-rich-lbl">{lang==="fr"?"Coût / an":"Cost / year"}</span>
+                              <span className="coterm-rich-val">{opt.annual_cost?.toLocaleString("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0})}</span>
+                            </div>
+                            {showSavings && opt.savings_vs_a > 0 && <div className="coterm-rich-savings">↓ {opt.savings_vs_a?.toLocaleString("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0})} vs A</div>}
+                          </>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Générer */}
-        {(analysisEntries.length === 0 || v2Tab === "generate") && analysisEntries.length > 0 && (
+        {analysisEntries.length > 0 && v2Tab === "generate" && (
           <div className="layout">
             <div className="col-main">
               {error && <div className="alert alert-error" style={{marginBottom:"1rem"}}>⚠️ {error}</div>}
@@ -2247,8 +2301,8 @@ function ParkDashboard({ analyses, lang, expiryDays, t, files }) {
     active:   { bg:"#D4EDDA", color:"#155724", label: isFr?"Actif":"Active" },
     expiring: { bg:"#FEF3CD", color:"#856404", label: isFr?"Bientôt":"Expiring" },
     expired:  { bg:"#FDE8E8", color:"#721C24", label: isFr?"Expiré":"Expired" },
-    nodate:   { bg:"#f0f0f0", color:"#888",    label: isFr?"Sans date":"No date" },
-    none:     { bg:"#f0f0f0", color:"#888",    label: isFr?"Aucun":"None" },
+    nodate:   { bg:"#FDE8E8", color:"#721C24", label: isFr?"Expiré":"Expired" },
+    none:     { bg:"#FDE8E8", color:"#721C24", label: isFr?"Expiré":"Expired" },
   };
 
   // Valeurs uniques pour les filtres
@@ -2586,8 +2640,8 @@ function LicenceTable({ files, lang, expiryDays }) {
     active:  {bg:"#D4EDDA",color:"#155724",label:isFr?"U&S Actif":"U&S Active"},
     expiring:{bg:"#FEF3CD",color:"#856404",label:isFr?"Bientôt":"Expiring"},
     expired: {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
-    nodate:  {bg:"#f0f0f0",color:"#888",   label:isFr?"Sans date":"No date"},
-    none:    {bg:"#f0f0f0",color:"#888",   label:isFr?"Aucun":"None"},
+    nodate:  {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
+    none:    {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
   };
 
   useEffect(() => {
@@ -2630,7 +2684,9 @@ function LicenceTable({ files, lang, expiryDays }) {
     parseAll();
   }, [files, expiryDays]);
 
-  const uniqSw     = [...new Set(rows.map(r=>r.software).filter(Boolean))].sort();
+  const uniqSw     = [...new Set(rows.map(r=>
+    r.software?.includes("Advanced Security") ? "Advanced Security" : r.software
+  ).filter(Boolean))].sort();
   const uniqType   = [...new Set(rows.map(r=>r.type||"Perpetual"))].sort();
   const uniqStatus = [...new Set(rows.map(r=>r.usStatus))];
   const toggle = (setter, val) => setter(p => p.includes(val)?p.filter(v=>v!==val):[...p,val]);
@@ -2639,7 +2695,8 @@ function LicenceTable({ files, lang, expiryDays }) {
   const filtered = [...rows]
     .filter(r => {
       if (search) { const q=search.toLowerCase(); if(![r.client,r.software,r.computer,r.ak,r.edition].some(v=>v?.toLowerCase().includes(q))) return false; }
-      if (filterSw.length>0 && !filterSw.includes(r.software)) return false;
+      const swNorm = r.software?.includes("Advanced Security") ? "Advanced Security" : r.software;
+      if (filterSw.length>0 && !filterSw.includes(swNorm)) return false;
       if (filterType.length>0 && !filterType.includes(r.type||"Perpetual")) return false;
       if (filterStatus.length>0 && !filterStatus.includes(r.usStatus)) return false;
       return true;
@@ -2667,12 +2724,12 @@ function LicenceTable({ files, lang, expiryDays }) {
 
   const COLS = [
     {key:"client",  label:isFr?"Compte / Email":"Account / Email", w:"18%"},
-    {key:"software",label:isFr?"Produit":"Product", w:"14%"},
+    {key:"software",label:isFr?"Produit":"Product", w:"16%"},
+    {key:"users",   label:isFr?"Util.":"Users", w:"5%"},
     {key:"type",    label:"Type", w:"8%"},
     {key:"computer",label:isFr?"Poste":"Computer", w:"12%"},
     {key:"ak",      label:isFr?"Clé d'activation":"Activation key", w:"13%"},
     {key:"urgency", label:"Updates & Support", w:"17%"},
-    {key:"users",   label:isFr?"Util.":"Users", w:"5%"},
     {key:"created", label:isFr?"Création":"Created", w:"9%"},
   ];
 
@@ -2720,13 +2777,18 @@ function LicenceTable({ files, lang, expiryDays }) {
               return (
                 <tr key={i} style={{borderBottom:"0.5px solid var(--border)",background:i%2===0?"transparent":"var(--bg2,#f8fafe)"}}>
                   <td style={{padding:"6px 10px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)",fontWeight:500}}>{cleanClient}</td>
-                  <td style={{padding:"6px 10px",whiteSpace:"nowrap",color:"var(--text)"}}>{PROD_SHORT[r.software]||r.software?.replace("TSplus ","")}<span style={{color:"var(--muted)",fontSize:".68rem"}}> {r.edition}</span></td>
+                  <td style={{padding:"6px 10px",whiteSpace:"nowrap",color:"var(--text)"}}>
+                    {r.software?.includes("Advanced Security")
+                      ? <><strong>Advanced Security</strong><span style={{color:"var(--muted)",fontSize:".68rem",fontWeight:400}}>{r.edition?.includes("Essentials")?" Essentials":r.edition?.includes("Ultimate")?" Ultimate":""}</span></>
+                      : <>{PROD_SHORT[r.software]||r.software?.replace("TSplus ","")}<span style={{color:"var(--muted)",fontSize:".68rem"}}> {r.edition}</span></>
+                    }
+                  </td>
                   <td style={{padding:"6px 10px"}}><span style={{fontSize:".68rem",padding:"2px 6px",borderRadius:"4px",background:"var(--border)",color:"var(--muted)"}}>{r.type||"Perpetual"}</span></td>
                   <td style={{padding:"6px 10px",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.computer}</td>
                   <td style={{padding:"6px 10px",fontFamily:"monospace",fontSize:".68rem",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.ak}</td>
                   <td style={{padding:"6px 10px",whiteSpace:"nowrap"}}>
                     <span style={{fontSize:".7rem",padding:"2px 8px",borderRadius:"4px",background:badge.bg,color:badge.color,fontWeight:600,display:"inline-block"}}>
-                      {badge.label}{r.expiry?` · ${r.expiry}`:""}
+                      {badge.label}{(r.usStatus==="active"||r.usStatus==="expiring") && r.expiry ? ` · ${r.expiry}` : ""}
                     </span>
                   </td>
                   <td style={{padding:"6px 10px",textAlign:"center",color:"var(--muted)"}}>{r.users}</td>
@@ -2738,6 +2800,109 @@ function LicenceTable({ files, lang, expiryDays }) {
         </table>
         {filtered.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:".8rem"}}>{isFr?"Aucun résultat":"No results"}</div>}
       </div>
+    </div>
+  );
+}
+
+function OverviewDashboard({ analyses, lang, expiryDays }) {
+  const isFr = lang === "fr";
+  const total    = analyses.reduce((s,a) => s+(a.data?.total||0), 0);
+  const active   = analyses.reduce((s,a) => s+(a.data?.active||0), 0);
+  const expiring = analyses.reduce((s,a) => s+(a.data?.expiring_soon||0), 0);
+  const expired  = analyses.reduce((s,a) => s+(a.data?.expired_us||0), 0);
+
+  // Produits
+  const prodMap = {};
+  analyses.forEach(a => {
+    if (!a.data?.products) return;
+    Object.entries(a.data.products).forEach(([k,v]) => { prodMap[k] = (prodMap[k]||0)+v; });
+  });
+  const products = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]);
+  const COLORS = ["#1A3C5E","#1D9E75","#e67e22","#2980b9","#8e44ad"];
+
+  const pct = (n) => total > 0 ? Math.round(n/total*100) : 0;
+
+  return (
+    <div style={{marginBottom:"1rem"}}>
+      {/* Row 1 — Total */}
+      <div style={{
+        border:"1px solid var(--border)", borderRadius:"12px", padding:"1.5rem",
+        textAlign:"center", marginBottom:"12px", background:"var(--surface)"
+      }}>
+        <div style={{fontSize:"2.8rem",fontWeight:700,color:"var(--text)",lineHeight:1}}>{total}</div>
+        <div style={{fontSize:".82rem",color:"var(--muted)",marginTop:"4px"}}>{isFr?"licences totales":"total licences"}</div>
+        <div style={{display:"flex",height:"6px",borderRadius:"3px",overflow:"hidden",margin:"12px 0 4px",gap:"2px"}}>
+          {active   > 0 && <div style={{flex:active,  background:"#1D9E75"}}/>}
+          {expiring > 0 && <div style={{flex:expiring, background:"#e67e22"}}/>}
+          {expired  > 0 && <div style={{flex:expired,  background:"#c0392b"}}/>}
+        </div>
+      </div>
+
+      {/* Row 2 — 3 KPI cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"12px"}}>
+        {[
+          {val:active,   label:isFr?"U&S actif":"U&S Active",         color:"#1D9E75", border:"#1D9E75"},
+          {val:expiring, label:isFr?`expiration < ${expiryDays}j`:`expiring < ${expiryDays}d`, color:"#e67e22", border:"#e67e22"},
+          {val:expired,  label:isFr?"U&S expiré":"U&S expired",        color:"#c0392b", border:"#c0392b"},
+        ].map((kpi,i) => (
+          <div key={i} style={{
+            border:`1px solid var(--border)`, borderLeft:`3px solid ${kpi.border}`,
+            borderRadius:"8px", padding:"1rem", background:"var(--surface)", textAlign:"center"
+          }}>
+            <div style={{fontSize:"1.8rem",fontWeight:700,color:kpi.color,lineHeight:1}}>{kpi.val}</div>
+            <div style={{fontSize:".75rem",color:"var(--muted)",marginTop:"4px"}}>{kpi.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 3 — Répartition produits */}
+      {products.length > 0 && (
+        <div style={{
+          border:"1px solid var(--border)", borderRadius:"12px",
+          padding:"1.2rem", background:"var(--surface)"
+        }}>
+          <div style={{fontSize:".8rem",fontWeight:700,color:"var(--accent)",marginBottom:"12px"}}>
+            {isFr?"Répartition par produit":"Product breakdown"}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:"2rem",flexWrap:"wrap"}}>
+            {/* Donut chart simple */}
+            <svg viewBox="0 0 80 80" width="80" height="80" style={{flexShrink:0}}>
+              {(() => {
+                let offset = 0;
+                const circumference = 2 * Math.PI * 30;
+                return products.map(([name, count], i) => {
+                  const pct = count / total;
+                  const dash = pct * circumference;
+                  const el = (
+                    <circle key={i}
+                      cx="40" cy="40" r="30"
+                      fill="none"
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth="12"
+                      strokeDasharray={`${dash} ${circumference - dash}`}
+                      strokeDashoffset={-offset * circumference}
+                      transform="rotate(-90 40 40)"
+                    />
+                  );
+                  offset += pct;
+                  return el;
+                });
+              })()}
+              <circle cx="40" cy="40" r="18" fill="var(--bg)" />
+            </svg>
+            {/* Légende */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:"8px"}}>
+              {products.map(([name, count], i) => (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                  <div style={{width:"10px",height:"10px",borderRadius:"50%",background:COLORS[i%COLORS.length],flexShrink:0}}/>
+                  <span style={{flex:1,fontSize:".8rem",color:"var(--text)"}}>{name.replace("TSplus ","")}</span>
+                  <span style={{fontWeight:700,fontSize:".82rem",color:COLORS[i%COLORS.length]}}>{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
