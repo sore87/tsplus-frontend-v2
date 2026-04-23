@@ -1292,6 +1292,31 @@ export default function App() {
     } finally { setXlsxPdfLoading(false); }
   };
 
+
+  const fetchFxRate = async () => {
+    if (currency === "EUR" || currency === "USD") return;
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${currency}`);
+      const data = await res.json();
+      if (data.rates?.[currency]) setFxRate(data.rates[currency] * 1.035);
+    } catch(e) { console.error("FX rate fetch failed", e); }
+  };
+
+  const handleXlsxDetect = async () => {
+    if (!xlsxFile) return;
+    setXlsxLoading(true); setXlsxError("");
+    const fd = new FormData();
+    fd.append("file", xlsxFile);
+    try {
+      const res = await fetch(`${API_URL}/detect-selection`, { method:"POST", body:fd, signal:AbortSignal.timeout(30000) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setXlsxDetected(data.count || 0);
+      setXlsxPreview(data.preview || []);
+    } catch(e) { setXlsxError(e.message); }
+    finally { setXlsxLoading(false); }
+  };
+
   const analysisEntries = Object.values(analyses).sort((a, b) => {
     const expPctA = a.data?.total > 0 ? (a.data.expired_us / a.data.total) : 0;
     const expPctB = b.data?.total > 0 ? (b.data.expired_us / b.data.total) : 0;
@@ -1637,9 +1662,9 @@ export default function App() {
                       </label>
                       {pdfLogoManual && <button onClick={()=>setPdfLogoManual("")} style={{padding:".4rem .6rem",borderRadius:"7px",border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer",fontSize:".75rem"}}>✕</button>}
                     </div>
-                    {!pdfLogoManual && clientDomain && (
+                    {!pdfLogoManual && activeAnalysis?.email_domain && (
                       <p style={{fontSize:".7rem",color:"var(--muted)",marginTop:".3rem"}}>
-                        {lang==="fr"?"Logo détecté automatiquement depuis le domaine":"Logo auto-detected from domain"} <strong>{clientDomain}</strong>
+                        {lang==="fr"?"Logo détecté automatiquement depuis le domaine":"Logo auto-detected from domain"} <strong>{activeAnalysis.email_domain}</strong>
                       </p>
                     )}
                   </div>
