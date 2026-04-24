@@ -3306,7 +3306,7 @@ function LicenceTable({ files, lang, expiryDays }) {
       }}>
         <span style={{fontSize:".8rem"}}>{isActive?"✕":"⊕"}</span>
         {label}
-        {isActive && <span style={{background:"rgba(255,255,255,.25)",borderRadius:"99px",padding:"0 5px",fontSize:".68rem"}}>{isActive}</span>}
+{isActive > 0 && <span style={{background:"rgba(255,255,255,.25)",borderRadius:"99px",padding:"0 5px",fontSize:".68rem"}}>{isActive}</span>}
       </button>
       {openFilter===id && (
         <div style={{
@@ -3383,7 +3383,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           placeholder={isFr?"Recherche rapide…":"Quick search…"}
           style={{padding:"4px 10px",borderRadius:"99px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:".75rem",outline:"none",minWidth:"140px"}}/>
 
-        <Dropdown id="product" label="Product" isActive={fProduct.length||0}>
+        <Dropdown id="product" label={isFr?"Produit":"Product"} isActive={fProduct.length||0}>
           <div data-filter>
             <CheckList values={uniqSw} selected={tmpProduct} setSelected={setTmpProduct}
               applyFn={()=>{setFProduct(tmpProduct);setOpenFilter(null);}}/>
@@ -3397,7 +3397,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="status" label="Status" isActive={fStatus.length||0}>
+        <Dropdown id="status" label={isFr?"Statut":"Status"} isActive={fStatus.length||0}>
           <div data-filter>
             <CheckList values={STATUS_OPTIONS} selected={tmpStatus} setSelected={setTmpStatus}
               applyFn={()=>{setFStatus(tmpStatus);setOpenFilter(null);}}/>
@@ -3412,7 +3412,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="computer" label="Computer" isActive={fComputer?1:0}>
+        <Dropdown id="computer" label={isFr?"Poste":"Computer"} isActive={fComputer?1:0}>
           <div data-filter>
             <TextSearch placeholder={isFr?"Rechercher un poste…":"Search Computer…"}
               value={tmpComputer} setValue={setTmpComputer}
@@ -3420,7 +3420,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="account" label="Account" isActive={fAccount?1:0}>
+        <Dropdown id="account" label={isFr?"Compte":"Account"} isActive={fAccount?1:0}>
           <div data-filter>
             <TextSearch placeholder={isFr?"Rechercher un compte…":"Search Account…"}
               value={tmpAccount} setValue={setTmpAccount}
@@ -3428,7 +3428,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="comment" label="Comment" isActive={fComment?1:0}>
+        <Dropdown id="comment" label={isFr?"Commentaire":"Comment"} isActive={fComment?1:0}>
           <div data-filter>
             <TextSearch placeholder={isFr?"Rechercher dans les commentaires…":"Search Comment…"}
               value={tmpComment} setValue={setTmpComment}
@@ -3436,7 +3436,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="orderid" label="Order ID" isActive={fOrderId?1:0}>
+        <Dropdown id="orderid" label={isFr?"N° commande":"Order ID"} isActive={fOrderId?1:0}>
           <div data-filter>
             <TextSearch placeholder="Search Order ID…"
               value={tmpOrderId} setValue={setTmpOrderId}
@@ -3444,7 +3444,7 @@ function LicenceTable({ files, lang, expiryDays }) {
           </div>
         </Dropdown>
 
-        <Dropdown id="date" label="Order date" isActive={(fDateFrom||fDateTo)?1:0}>
+        <Dropdown id="date" label={isFr?"Date commande":"Order date"} isActive={(fDateFrom||fDateTo)?1:0}>
           <div data-filter style={{padding:"12px"}}>
             <div style={{marginBottom:"8px"}}>
               <div style={{fontSize:".72rem",color:"var(--muted)",marginBottom:"3px"}}>From</div>
