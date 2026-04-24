@@ -3088,17 +3088,48 @@ function LicenceTable({ files, lang, expiryDays }) {
   const [rows, setRows] = useState([]);
   const [sort, setSort] = useState({col:"urgency", dir:"asc"});
   const [search, setSearch] = useState("");
-  const [filterSw, setFilterSw] = useState([]);
-  const [filterType, setFilterType] = useState([]);
-  const [filterStatus, setFilterStatus] = useState([]);
+  const [openFilter, setOpenFilter] = useState(null); // which filter dropdown is open
 
-  const PROD_SHORT = {"Remote Access":"Remote Access","Advanced Security":"Adv. Security","Server Monitoring":"Srv. Monitor","Virtual Printer":"Virt. Printer","Two-Factor Authentication":"2FA"};
+  // Filter states
+  const [fProduct,  setFProduct]  = useState([]);
+  const [fType,     setFType]     = useState([]);
+  const [fStatus,   setFStatus]   = useState([]);
+  const [fUS,       setFUS]       = useState([]);
+  const [fComputer, setFComputer] = useState("");
+  const [fAccount,  setFAccount]  = useState("");
+  const [fComment,  setFComment]  = useState("");
+  const [fOrderId,  setFOrderId]  = useState("");
+  const [fDateFrom, setFDateFrom] = useState("");
+  const [fDateTo,   setFDateTo]   = useState("");
+
+  // Temp states for pending filter values
+  const [tmpProduct,  setTmpProduct]  = useState([]);
+  const [tmpType,     setTmpType]     = useState([]);
+  const [tmpStatus,   setTmpStatus]   = useState([]);
+  const [tmpUS,       setTmpUS]       = useState([]);
+  const [tmpComputer, setTmpComputer] = useState("");
+  const [tmpAccount,  setTmpAccount]  = useState("");
+  const [tmpComment,  setTmpComment]  = useState("");
+  const [tmpOrderId,  setTmpOrderId]  = useState("");
+  const [tmpDateFrom, setTmpDateFrom] = useState("");
+  const [tmpDateTo,   setTmpDateTo]   = useState("");
+
   const US_BADGE = {
-    active:  {bg:"#D4EDDA",color:"#155724",label:isFr?"U&S Actif":"U&S Active"},
-    expiring:{bg:"#FEF3CD",color:"#856404",label:isFr?"Bientôt":"Expiring"},
+    active:  {bg:"#D4EDDA",color:"#155724",label:isFr?"U&S Valide":"Valid"},
+    expiring:{bg:"#FEF3CD",color:"#856404",label:isFr?"Bientôt":"Expiring soon"},
     expired: {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
     nodate:  {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
     none:    {bg:"#FDE8E8",color:"#721C24",label:isFr?"Expiré":"Expired"},
+  };
+
+  const PROD_SHORT = {
+    "TSplus Remote Access":"Remote Access","Remote Access":"Remote Access",
+    "TSplus Advanced Security":"Advanced Security","Advanced Security":"Advanced Security",
+    "TSplus Server Monitoring":"Server Monitoring","Server Monitoring":"Server Monitoring",
+    "TSplus Virtual Printer":"Virtual Printer","Virtual Printer":"Virtual Printer",
+    "Two-Factor Authentication":"2FA",
+    "Remote Support":"Remote Support","Remote Work":"Remote Work",
+    "Server Genius":"Server Genius",
   };
 
   useEffect(() => {
@@ -3112,13 +3143,18 @@ function LicenceTable({ files, lang, expiryDays }) {
         const sep = ";";
         const header = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g,"").replace(/^\ufeff/,"").toLowerCase());
         const idx = n => header.findIndex(h => h === n);
-        const iStatus=idx("status"),iSoftware=idx("software"),iEdition=idx("edition"),iUsers=idx("users"),
-              iComputer=idx("computer_name"),iAK=idx("activation_key"),iExpiry=idx("support_expiry_date"),
-              iType=idx("type"),iOrder=idx("orderid"),iClient=idx("email"),iCompany=idx("customer_comments"),
-              iWithSup=idx("with_support"),iCreated=idx("created_at");
+        const iStatus=idx("status"),iSoftware=idx("software"),iEdition=idx("edition"),
+              iUsers=idx("users"),iComputer=idx("computer_name"),iAK=idx("activation_key"),
+              iExpiry=idx("support_expiry_date"),iType=idx("type"),iOrder=idx("orderid"),
+              iClient=idx("email"),iCompany=idx("customer_comments"),
+              iWithSup=idx("with_support"),iCreated=idx("created_at"),
+              iComments=idx("comments"),iHidden=idx("hidden");
         for (let i=1; i<lines.length; i++) {
           const c = lines[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,""));
-          const statusVal2 = (c[iStatus]||"").toLowerCase(); if (iStatus>=0 && (statusVal2==="disabled"||statusVal2==="disabling..."||statusVal2==="hidden")) continue;
+          if (!c[0]) continue;
+          const sv = (c[iStatus]||"").toLowerCase();
+          if (sv==="disabled"||sv==="disabling..."||sv==="hidden") continue;
+          if (iHidden>=0 && c[iHidden]==="1") continue;
           const ws=iWithSup>=0?parseInt(c[iWithSup]):0;
           const expiry=iExpiry>=0?c[iExpiry]:"";
           const today=new Date(); today.setHours(0,0,0,0);
@@ -3127,12 +3163,24 @@ function LicenceTable({ files, lang, expiryDays }) {
             const diff=(new Date(expiry)-today)/86400000;
             usStatus=diff<0?"expired":diff<=expiryDays?"expiring":"active";
           } else if (ws===1) usStatus="nodate";
+          const rawSw = iSoftware>=0?c[iSoftware]:"—";
+          const swNorm = rawSw.replace("TSplus ","");
           all.push({
-            client:iClient>=0?c[iClient]:"—",company:iCompany>=0?c[iCompany]:"—",software:iSoftware>=0?c[iSoftware]:"—",
-            edition:iEdition>=0?c[iEdition]:"—",users:iUsers>=0?c[iUsers]:"—",
-            computer:iComputer>=0?c[iComputer]:"—",ak:iAK>=0?c[iAK]?.slice(0,22):"—",
-            expiry,type:iType>=0?c[iType]:"Perpetual",orderid:iOrder>=0?c[iOrder]:"—",
-            created:iCreated>=0?c[iCreated]?.slice(0,10):"—",usStatus,_file:file.name,
+            client:   iClient  >=0?c[iClient]  :"—",
+            company:  iCompany >=0?c[iCompany] :"—",
+            software: swNorm,
+            rawSw,
+            edition:  iEdition >=0?c[iEdition] :"—",
+            users:    iUsers   >=0?c[iUsers]   :"—",
+            computer: iComputer>=0?c[iComputer]:"—",
+            ak:       iAK      >=0?c[iAK]      :"—",
+            expiry,
+            type:     iType    >=0?c[iType]    :"Perpetual",
+            orderid:  iOrder   >=0?c[iOrder]   :"—",
+            created:  iCreated >=0?c[iCreated]?.slice(0,10):"—",
+            comment:  iComments>=0?c[iComments]:"—",
+            status:   iStatus  >=0?c[iStatus]  :"—",
+            usStatus, _file:file.name,
           });
         }
       }
@@ -3141,137 +3189,363 @@ function LicenceTable({ files, lang, expiryDays }) {
     parseAll();
   }, [files, expiryDays]);
 
-  const uniqSw     = [...new Set(rows.map(r=>
-    r.software?.includes("Advanced Security") ? "Advanced Security" : r.software
-  ).filter(Boolean))].sort();
+  // Unique values
+  const uniqSw     = [...new Set(rows.map(r=>r.software?.includes("Advanced Security")?"Advanced Security":r.software).filter(Boolean))].sort();
   const uniqType   = [...new Set(rows.map(r=>r.type||"Perpetual"))].sort();
-  const uniqStatus = [...new Set(rows.map(r=>r.usStatus))];
-  const toggle = (setter, val) => setter(p => p.includes(val)?p.filter(v=>v!==val):[...p,val]);
+  const STATUS_OPTIONS = ["Enabled","Disabled","Refunded","Failed renewal","Auto-renew activated","Auto-renew deactivated","Expiring soon","Expired"];
+  const US_OPTIONS = [{k:"active",label:"Valid"},{k:"expiring",label:"Expiring soon"},{k:"expired",label:"Expired"},{k:"none",label:"None"},{k:"nodate",label:"No date"}];
+
   const _urg = {expiring:0,expired:1,nodate:2,none:2,active:3};
 
-  const filtered = [...rows]
-    .filter(r => {
-      if (search) { const q=search.toLowerCase(); if(![r.client,r.software,r.computer,r.ak,r.edition].some(v=>v?.toLowerCase().includes(q))) return false; }
-      const swNorm = r.software?.includes("Advanced Security") ? "Advanced Security" : r.software;
-      if (filterSw.length>0 && !filterSw.includes(swNorm)) return false;
-      if (filterType.length>0 && !filterType.includes(r.type||"Perpetual")) return false;
-      if (filterStatus.length>0 && !filterStatus.includes(r.usStatus)) return false;
-      return true;
-    })
-    .sort((a,b) => {
-      // En mode multi-CSV, trier par client en premier
-      if (a._file !== b._file) return (a._file||"").localeCompare(b._file||"");
-      if (sort.col==="urgency"||sort.col==="expiry") {
-        const ua=_urg[a.usStatus]??3, ub=_urg[b.usStatus]??3;
-        if (ua!==ub) return sort.dir==="asc"?ua-ub:ub-ua;
-        return sort.dir==="asc"?(a.expiry||"9999").localeCompare(b.expiry||"9999"):(b.expiry||"9999").localeCompare(a.expiry||"9999");
-      }
-      const va=a[sort.col]||"", vb=b[sort.col]||"";
-      return sort.dir==="asc"?va.localeCompare(vb):vb.localeCompare(va);
-    });
+  const filtered = [...rows].filter(r => {
+    if (search) { const q=search.toLowerCase(); if(![r.client,r.software,r.computer,r.ak,r.edition,r.company,r.comment,r.orderid].some(v=>v?.toLowerCase().includes(q))) return false; }
+    const swNorm = r.software?.includes("Advanced Security")?"Advanced Security":r.software;
+    if (fProduct.length>0  && !fProduct.includes(swNorm)) return false;
+    if (fType.length>0     && !fType.includes(r.type||"Perpetual")) return false;
+    if (fStatus.length>0   && !fStatus.some(s => r.status?.toLowerCase().includes(s.toLowerCase()))) return false;
+    if (fUS.length>0       && !fUS.includes(r.usStatus)) return false;
+    if (fComputer && !r.computer?.toLowerCase().includes(fComputer.toLowerCase())) return false;
+    if (fAccount  && ![r.client,r.company].some(v=>v?.toLowerCase().includes(fAccount.toLowerCase()))) return false;
+    if (fComment  && !r.comment?.toLowerCase().includes(fComment.toLowerCase())) return false;
+    if (fOrderId  && !r.orderid?.toLowerCase().includes(fOrderId.toLowerCase())) return false;
+    if (fDateFrom && r.created < fDateFrom) return false;
+    if (fDateTo   && r.created > fDateTo)   return false;
+    return true;
+  }).sort((a,b) => {
+    if (files.length > 1 && a._file !== b._file) return (a._file||"").localeCompare(b._file||"");
+    if (sort.col==="urgency"||sort.col==="expiry") {
+      const ua=_urg[a.usStatus]??3, ub=_urg[b.usStatus]??3;
+      if (ua!==ub) return sort.dir==="asc"?ua-ub:ub-ua;
+      return sort.dir==="asc"?(a.expiry||"9999").localeCompare(b.expiry||"9999"):(b.expiry||"9999").localeCompare(a.expiry||"9999");
+    }
+    const va=a[sort.col]||"", vb=b[sort.col]||"";
+    return sort.dir==="asc"?va.localeCompare(vb):vb.localeCompare(va);
+  });
 
   const handleSort = col => setSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}));
   const sortIcon = col => sort.col===col?(sort.dir==="asc"?" ▲":" ▼"):"";
 
   const exportCsv = () => {
-    const cols=["client","software","edition","type","users","computer","ak","expiry","usStatus","created","orderid"];
-    const hdr=[isFr?"Compte":"Account","Produit","Édition","Type","Util.","Poste","Clé activation","Expiration U&S","Statut U&S","Création","Order ID"];
+    const cols=["client","company","software","edition","type","users","computer","ak","expiry","usStatus","created","orderid","comment","status"];
+    const hdr=[isFr?"Email":"Email",isFr?"Compte":"Account","Produit","Édition","Type","Util.","Poste","Clé activation","Expiration U&S","Statut U&S","Création","Order ID","Commentaire","Statut brut"];
     const csv=[hdr.join(";"),...filtered.map(r=>cols.map(k=>`"${(r[k]||"").toString().replace(/"/g,'""')}"`).join(";"))].join("\n");
     const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}));
     a.download=`licences_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   };
 
+  const openDropdown = (key, tmpSetter, curVal) => {
+    if (openFilter === key) { setOpenFilter(null); return; }
+    tmpSetter(curVal);
+    setOpenFilter(key);
+  };
+
+  const activeFilters = [
+    fProduct.length, fType.length, fStatus.length, fUS.length,
+    fComputer?1:0, fAccount?1:0, fComment?1:0, fOrderId?1:0,
+    (fDateFrom||fDateTo)?1:0
+  ].reduce((a,b)=>a+b,0);
+
+  const clearAll = () => {
+    setFProduct([]); setFType([]); setFStatus([]); setFUS([]);
+    setFComputer(""); setFAccount(""); setFComment(""); setFOrderId("");
+    setFDateFrom(""); setFDateTo(""); setOpenFilter(null);
+  };
+
+  // KPI counts
+  const kpiAll      = rows.length;
+  const kpiNoUS     = rows.filter(r=>r.usStatus==="none"||r.usStatus==="nodate").length;
+  const kpiExpired  = rows.filter(r=>r.usStatus==="expired").length;
+  const kpiExpiring = rows.filter(r=>r.usStatus==="expiring").length;
+
   const COLS = [
-    {key:"client",  label:isFr?"Compte / Email":"Account / Email", w:"18%"},
-    {key:"software",label:isFr?"Produit":"Product", w:"16%"},
-    {key:"users",   label:isFr?"Util.":"Users", w:"5%"},
-    {key:"type",    label:"Type", w:"8%"},
-    {key:"computer",label:isFr?"Poste":"Computer", w:"12%"},
-    {key:"ak",      label:isFr?"Clé d'activation":"Activation key", w:"13%"},
-    {key:"urgency", label:"Updates & Support", w:"17%"},
-    {key:"created", label:isFr?"Création":"Created", w:"9%"},
+    {key:"client",  label:isFr?"Compte / Email":"Account / Email", w:"16%"},
+    {key:"software",label:isFr?"Produit":"Product", w:"15%"},
+    {key:"type",    label:"Type", w:"7%"},
+    {key:"computer",label:isFr?"Poste":"Computer", w:"11%"},
+    {key:"ak",      label:isFr?"Clé d'activation":"Activation key", w:"14%"},
+    {key:"urgency", label:"Updates & Support", w:"15%"},
+    {key:"created", label:isFr?"Création":"Created on", w:"9%"},
+    {key:"comment", label:"Comment", w:"10%"},
   ];
 
-  return (
-    <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:"10px",overflow:"hidden",marginBottom:"1rem"}}>
-      <div style={{padding:"10px 14px",borderBottom:"1px solid var(--border)",display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap",background:"var(--bg2,#f8fafe)"}}>
-        <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder={isFr?"Rechercher par client, logiciel, poste…":"Search by client, software, computer…"}
-          style={{flex:1,minWidth:"160px",fontSize:".78rem",padding:"5px 10px",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",outline:"none"}}/>
-        <button onClick={exportCsv} style={{padding:"5px 12px",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",cursor:"pointer",fontSize:".75rem",whiteSpace:"nowrap"}}>
-          ⬇ {isFr?"Exporter CSV":"Export CSV"}
-        </button>
-        <span style={{fontSize:".72rem",color:"var(--muted)",whiteSpace:"nowrap"}}>{filtered.length} / {rows.length} {isFr?"licences":"licences"}</span>
-      </div>
-      {[
-        {label:isFr?"Produit":"Product",vals:uniqSw,active:filterSw,setter:setFilterSw,fmt:v=>PROD_SHORT[v]||v.replace("TSplus ",""),colored:false},
-        {label:"Type",vals:uniqType,active:filterType,setter:setFilterType,fmt:v=>v,colored:false},
-        {label:"U&S",vals:uniqStatus,active:filterStatus,setter:setFilterStatus,fmt:v=>US_BADGE[v]?.label||v,colored:true},
-      ].filter(g=>g.vals.length>1).map((g,gi)=>(
-        <div key={gi} style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap",padding:"6px 14px",borderBottom:"1px solid var(--border)",background:"var(--bg2,#f8fafe)"}}>
-          <span style={{fontSize:".68rem",fontWeight:700,color:"var(--muted)",minWidth:"40px"}}>{g.label}</span>
-          {g.vals.map(val=>{
-            const on=g.active.includes(val);
-            const sb=g.colored?US_BADGE[val]:null;
-            return <span key={val} onClick={()=>toggle(g.setter,val)} style={{padding:"2px 10px",borderRadius:"99px",fontSize:".72rem",cursor:"pointer",userSelect:"none",fontWeight:on?700:400,background:on?(sb?.bg||"#1A3C5E"):"transparent",color:on?(sb?.color||"#fff"):"var(--muted)",border:`1px solid ${on?(sb?.bg||"#1A3C5E"):"var(--border)"}`}}>{g.fmt(val)}</span>;
-          })}
-          {g.active.length>0&&<span onClick={()=>g.setter([])} style={{fontSize:".68rem",color:"var(--accent)",cursor:"pointer"}}>✕</span>}
+  // Filter dropdown component inline
+  const Dropdown = ({id, label, children, isActive}) => (
+    <div style={{position:"relative",display:"inline-block"}}>
+      <button onClick={()=>setOpenFilter(openFilter===id?null:id)} style={{
+        display:"flex",alignItems:"center",gap:"5px",
+        padding:"4px 10px",borderRadius:"99px",
+        border:`1px solid ${isActive?"#1A3C5E":openFilter===id?"#1A3C5E":"var(--border)"}`,
+        background:isActive?"#1A3C5E":openFilter===id?"rgba(26,60,94,.07)":"var(--surface)",
+        color:isActive?"#fff":openFilter===id?"#1A3C5E":"var(--text)",
+        fontSize:".75rem",cursor:"pointer",fontWeight:isActive?600:400,
+        transition:"all .12s"
+      }}>
+        <span style={{fontSize:".8rem"}}>{isActive?"✕":"⊕"}</span>
+        {label}
+        {isActive && <span style={{background:"rgba(255,255,255,.25)",borderRadius:"99px",padding:"0 5px",fontSize:".68rem"}}>{isActive}</span>}
+      </button>
+      {openFilter===id && (
+        <div style={{
+          position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:100,
+          background:"var(--surface)",border:"1px solid var(--border)",
+          borderRadius:"10px",boxShadow:"0 8px 24px rgba(0,0,0,.15)",
+          minWidth:"200px",overflow:"hidden"
+        }}>
+          {children}
         </div>
-      ))}
-      <div style={{overflowX:"auto",maxHeight:"calc(100vh - 260px)",overflowY:"auto"}}>
+      )}
+    </div>
+  );
+
+  const CheckList = ({values, selected, setSelected, applyFn}) => (
+    <div>
+      <div style={{maxHeight:"220px",overflowY:"auto"}}>
+        {values.map(v=>(
+          <label key={v} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 14px",cursor:"pointer",fontSize:".82rem",color:"var(--text)"}}
+            onMouseEnter={e=>e.currentTarget.style.background="var(--bg2,#f8fafe)"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <input type="checkbox" checked={selected.includes(v)} onChange={()=>setSelected(p=>p.includes(v)?p.filter(x=>x!==v):[...p,v])}
+              style={{width:"15px",height:"15px",accentColor:"#e67e22",cursor:"pointer"}}/>
+            {v}
+          </label>
+        ))}
+      </div>
+      <div style={{padding:"8px 10px",borderTop:"1px solid var(--border)"}}>
+        <button onClick={applyFn} style={{width:"100%",padding:"7px",borderRadius:"7px",border:"none",background:"linear-gradient(135deg,#e67e22,#d35400)",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:".82rem"}}>
+          {isFr?"Appliquer":"Apply"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const TextSearch = ({placeholder, value, setValue, applyFn}) => (
+    <div style={{padding:"10px"}}>
+      <input autoFocus type="text" value={value} onChange={e=>setValue(e.target.value)}
+        onKeyDown={e=>e.key==="Enter"&&applyFn()}
+        placeholder={placeholder}
+        style={{width:"100%",padding:"6px 10px",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--bg)",color:"var(--text)",fontSize:".82rem",outline:"none",marginBottom:"8px"}}/>
+      <button onClick={applyFn} style={{width:"100%",padding:"7px",borderRadius:"7px",border:"none",background:"linear-gradient(135deg,#e67e22,#d35400)",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:".82rem"}}>
+        {isFr?"Appliquer":"Apply"}
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:"10px",overflow:"hidden",marginBottom:"1rem"}}
+      onClick={e=>{if(!e.target.closest("[data-filter]"))setOpenFilter(null)}}>
+
+      {/* KPI Counts — style portail */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",borderBottom:"1px solid var(--border)"}}>
+        {[
+          {label:isFr?"Toutes":"All", val:kpiAll, active:true},
+          {label:isFr?"Sans U&S":"No updates & support", val:kpiNoUS},
+          {label:isFr?"U&S expiré":"Updates & Support expired", val:kpiExpired},
+          {label:isFr?"U&S bientôt":"Updates & Support expiring soon", val:kpiExpiring},
+        ].map((k,i)=>(
+          <div key={i} style={{
+            padding:"12px 16px",
+            borderRight:i<3?"1px solid var(--border)":"none",
+            borderLeft:i===0?"3px solid var(--accent)":"none",
+          }}>
+            <div style={{fontSize:".72rem",color:"var(--muted)",marginBottom:"2px"}}>{k.label}</div>
+            <div style={{fontSize:"1.4rem",fontWeight:700,color:i===0?"var(--accent)":"var(--text)"}}>{k.val.toLocaleString()}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter pills bar */}
+      <div data-filter style={{display:"flex",gap:"6px",flexWrap:"wrap",padding:"10px 12px",borderBottom:"1px solid var(--border)",alignItems:"center",background:"var(--bg2,#f8fafe)"}}>
+        <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder={isFr?"Recherche rapide…":"Quick search…"}
+          style={{padding:"4px 10px",borderRadius:"99px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",fontSize:".75rem",outline:"none",minWidth:"140px"}}/>
+
+        <Dropdown id="product" label="Product" isActive={fProduct.length||0}>
+          <div data-filter>
+            <CheckList values={uniqSw} selected={tmpProduct} setSelected={setTmpProduct}
+              applyFn={()=>{setFProduct(tmpProduct);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="type" label="Type" isActive={fType.length||0}>
+          <div data-filter>
+            <CheckList values={uniqType} selected={tmpType} setSelected={setTmpType}
+              applyFn={()=>{setFType(tmpType);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="status" label="Status" isActive={fStatus.length||0}>
+          <div data-filter>
+            <CheckList values={STATUS_OPTIONS} selected={tmpStatus} setSelected={setTmpStatus}
+              applyFn={()=>{setFStatus(tmpStatus);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="us" label="Updates & Support" isActive={fUS.length||0}>
+          <div data-filter>
+            <CheckList values={US_OPTIONS.map(o=>o.label)} selected={tmpUS.map(k=>US_OPTIONS.find(o=>o.k===k)?.label||k)}
+              setSelected={labels=>setTmpUS(labels.map(l=>US_OPTIONS.find(o=>o.label===l)?.k||l))}
+              applyFn={()=>{setFUS(tmpUS);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="computer" label="Computer" isActive={fComputer?1:0}>
+          <div data-filter>
+            <TextSearch placeholder={isFr?"Rechercher un poste…":"Search Computer…"}
+              value={tmpComputer} setValue={setTmpComputer}
+              applyFn={()=>{setFComputer(tmpComputer);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="account" label="Account" isActive={fAccount?1:0}>
+          <div data-filter>
+            <TextSearch placeholder={isFr?"Rechercher un compte…":"Search Account…"}
+              value={tmpAccount} setValue={setTmpAccount}
+              applyFn={()=>{setFAccount(tmpAccount);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="comment" label="Comment" isActive={fComment?1:0}>
+          <div data-filter>
+            <TextSearch placeholder={isFr?"Rechercher dans les commentaires…":"Search Comment…"}
+              value={tmpComment} setValue={setTmpComment}
+              applyFn={()=>{setFComment(tmpComment);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="orderid" label="Order ID" isActive={fOrderId?1:0}>
+          <div data-filter>
+            <TextSearch placeholder="Search Order ID…"
+              value={tmpOrderId} setValue={setTmpOrderId}
+              applyFn={()=>{setFOrderId(tmpOrderId);setOpenFilter(null);}}/>
+          </div>
+        </Dropdown>
+
+        <Dropdown id="date" label="Order date" isActive={(fDateFrom||fDateTo)?1:0}>
+          <div data-filter style={{padding:"12px"}}>
+            <div style={{marginBottom:"8px"}}>
+              <div style={{fontSize:".72rem",color:"var(--muted)",marginBottom:"3px"}}>From</div>
+              <input type="date" value={tmpDateFrom} onChange={e=>setTmpDateFrom(e.target.value)}
+                style={{width:"100%",padding:"5px 8px",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--bg)",color:"var(--text)",fontSize:".8rem"}}/>
+            </div>
+            <div style={{marginBottom:"10px"}}>
+              <div style={{fontSize:".72rem",color:"var(--muted)",marginBottom:"3px"}}>To</div>
+              <input type="date" value={tmpDateTo} onChange={e=>setTmpDateTo(e.target.value)}
+                style={{width:"100%",padding:"5px 8px",borderRadius:"7px",border:"1px solid var(--border)",background:"var(--bg)",color:"var(--text)",fontSize:".8rem"}}/>
+            </div>
+            <button onClick={()=>{setFDateFrom(tmpDateFrom);setFDateTo(tmpDateTo);setOpenFilter(null);}}
+              style={{width:"100%",padding:"7px",borderRadius:"7px",border:"none",background:"linear-gradient(135deg,#e67e22,#d35400)",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:".82rem"}}>
+              {isFr?"Appliquer":"Apply"}
+            </button>
+          </div>
+        </Dropdown>
+
+        <div style={{marginLeft:"auto",display:"flex",gap:"6px",alignItems:"center"}}>
+          {activeFilters > 0 && (
+            <button onClick={clearAll} style={{padding:"4px 10px",borderRadius:"99px",border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer",fontSize:".72rem"}}>
+              ✕ {isFr?"Effacer les filtres":"Clear filters"}
+            </button>
+          )}
+          <button onClick={exportCsv} style={{padding:"4px 10px",borderRadius:"99px",border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",cursor:"pointer",fontSize:".75rem",display:"flex",alignItems:"center",gap:"4px"}}>
+            ⬇ Export CSV
+          </button>
+          <span style={{fontSize:".72rem",color:"var(--muted)",whiteSpace:"nowrap"}}>{filtered.length.toLocaleString()} / {rows.length.toLocaleString()}</span>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{overflowX:"auto",maxHeight:"calc(100vh - 280px)",overflowY:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:".75rem",tableLayout:"fixed"}}>
           <thead>
-            <tr style={{background:"#1A3C5E",position:"sticky",top:0,zIndex:2}}>
+            <tr style={{background:"var(--bg2,#f8fafe)",position:"sticky",top:0,zIndex:2,borderBottom:"2px solid var(--border)"}}>
+              <th style={{width:"30px",padding:"8px 10px"}}><input type="checkbox" style={{accentColor:"#e67e22"}}/></th>
               {COLS.map(col=>(
-                <th key={col.key} onClick={()=>handleSort(col.key)} style={{padding:"8px 10px",textAlign:"left",fontWeight:600,color:"rgba(255,255,255,.85)",cursor:"pointer",whiteSpace:"nowrap",width:col.w,userSelect:"none",fontSize:".71rem",letterSpacing:".03em"}}>
+                <th key={col.key} onClick={()=>handleSort(col.key)} style={{
+                  padding:"8px 10px",textAlign:"left",fontWeight:600,
+                  color:"var(--text)",cursor:"pointer",whiteSpace:"nowrap",
+                  width:col.w,userSelect:"none",fontSize:".72rem",
+                  borderRight:"1px solid var(--border)"
+                }}>
                   {col.label}{sortIcon(col.key)}
                 </th>
               ))}
+              <th style={{width:"30px"}}/>
             </tr>
           </thead>
           <tbody>
             {filtered.map((r,i)=>{
               const badge=US_BADGE[r.usStatus]||US_BADGE.none;
-              const cleanClient=(!r.client||r.client.startsWith("(")||r.client==="—")?"—":r.client;
               const isFirstOfFile = files.length > 1 && (i === 0 || filtered[i-1]._file !== r._file);
+              const cleanClient=(!r.client||r.client.startsWith("(")||r.client==="—")?"—":r.client;
+              const isAS = r.software?.includes("Advanced Security");
+              const swLabel = isAS ? "Advanced Security" : (r.software||"—");
+              const edLabel = isAS
+                ? (r.edition?.includes("Essentials")?" Essentials":r.edition?.includes("Ultimate")?" Ultimate":"")
+                : r.edition;
               return (
                 <Fragment key={i}>
                   {isFirstOfFile && (
                     <tr>
-                      <td colSpan={COLS.length} style={{
-                        padding:"5px 10px", background:"#1A3C5E",
-                        color:"rgba(255,255,255,.9)", fontSize:".72rem", fontWeight:700,
-                        letterSpacing:".05em"
+                      <td colSpan={COLS.length+2} style={{
+                        padding:"5px 12px",background:"#1A3C5E",
+                        color:"rgba(255,255,255,.9)",fontSize:".72rem",fontWeight:700
                       }}>
-                        📄 {(r._file||"").replace(".csv","") || "—"}
+                        📄 {(r._file||"").replace(".csv","")}
                       </td>
                     </tr>
                   )}
-                <tr style={{borderBottom:"0.5px solid var(--border)",background:i%2===0?"transparent":"var(--bg2,#f8fafe)"}}>
-                  <td style={{padding:"6px 10px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)",fontWeight:500}}>{cleanClient}</td>
-                  <td style={{padding:"6px 10px",whiteSpace:"nowrap",color:"var(--text)"}}>
-                    {r.software?.includes("Advanced Security")
-                      ? <><strong>Advanced Security</strong><span style={{color:"var(--muted)",fontSize:".68rem",fontWeight:400}}>{r.edition?.includes("Essentials")?" Essentials":r.edition?.includes("Ultimate")?" Ultimate":""}</span></>
-                      : <>{PROD_SHORT[r.software]||r.software?.replace("TSplus ","")}<span style={{color:"var(--muted)",fontSize:".68rem"}}> {r.edition}</span></>
-                    }
-                  </td>
-                  <td style={{padding:"6px 10px"}}><span style={{fontSize:".68rem",padding:"2px 6px",borderRadius:"4px",background:"var(--border)",color:"var(--muted)"}}>{r.type||"Perpetual"}</span></td>
-                  <td style={{padding:"6px 10px",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.computer}</td>
-                  <td style={{padding:"6px 10px",fontFamily:"monospace",fontSize:".68rem",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.ak}</td>
-                  <td style={{padding:"6px 10px",whiteSpace:"nowrap"}}>
-                    <span style={{fontSize:".7rem",padding:"2px 8px",borderRadius:"4px",background:badge.bg,color:badge.color,fontWeight:600,display:"inline-block"}}>
-                      {badge.label}{(r.usStatus==="active"||r.usStatus==="expiring") && r.expiry ? ` · ${r.expiry}` : ""}
-                    </span>
-                  </td>
-                  <td style={{padding:"6px 10px",textAlign:"center",color:"var(--muted)"}}>{r.users}</td>
-                  <td style={{padding:"6px 10px",color:"var(--muted)",whiteSpace:"nowrap"}}>{r.created}</td>
-                </tr>
+                  <tr style={{
+                    borderBottom:"1px solid var(--border)",
+                    background:i%2===0?"transparent":"var(--bg2,#f8fafe)"
+                  }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(26,60,94,.04)"}
+                    onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":"var(--bg2,#f8fafe)"}
+                  >
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)"}}><input type="checkbox" style={{accentColor:"#e67e22"}}/></td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      <div style={{fontWeight:500,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cleanClient}</div>
+                      {r.company && r.company!=="—" && <div style={{fontSize:".68rem",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.company}</div>}
+                    </td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",overflow:"hidden"}}>
+                      <div style={{fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>{swLabel}<span style={{color:"var(--muted)",fontWeight:400,fontSize:".68rem"}}>{edLabel}</span></div>
+                      {r.users && r.users!=="—" && <div style={{fontSize:".68rem",color:"var(--muted)"}}>{r.users} {isFr?"util.":"users"}</div>}
+                    </td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)"}}>
+                      <span style={{fontSize:".7rem",padding:"2px 8px",borderRadius:"4px",background:"rgba(29,158,117,.1)",color:"#1D9E75",border:"1px solid rgba(29,158,117,.3)",fontWeight:500}}>{r.type||"Perpetual"}</span>
+                    </td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.computer==="—"?"—":r.computer}</td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)"}}>
+                      {r.ak && r.ak!=="—" && <>
+                        <div style={{fontWeight:600,fontSize:".75rem",color:"var(--text)"}}>{r.orderid!=="—"?r.orderid:"—"}</div>
+                        <div style={{fontFamily:"monospace",fontSize:".68rem",color:"var(--muted)"}}>{r.ak}</div>
+                      </>}
+                    </td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",whiteSpace:"nowrap"}}>
+                      <span style={{fontSize:".72rem",padding:"2px 8px",borderRadius:"4px",background:badge.bg,color:badge.color,fontWeight:600,display:"inline-block"}}>
+                        {badge.label}{(r.usStatus==="active"||r.usStatus==="expiring")&&r.expiry?` · ${r.expiry}`:""}
+                      </span>
+                    </td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",color:"var(--muted)",whiteSpace:"nowrap",fontSize:".72rem"}}>{r.created}</td>
+                    <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100px"}}>{r.comment!=="—"?r.comment:""}</td>
+                    <td style={{padding:"6px 8px",textAlign:"center"}}>
+                      <span style={{cursor:"pointer",color:"var(--muted)",fontSize:".9rem"}}>···</span>
+                    </td>
+                  </tr>
                 </Fragment>
               );
             })}
           </tbody>
         </table>
-        {filtered.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"var(--muted)",fontSize:".8rem"}}>{isFr?"Aucun résultat":"No results"}</div>}
+        {filtered.length===0 && (
+          <div style={{padding:"2.5rem",textAlign:"center",color:"var(--muted)",fontSize:".82rem"}}>
+            {isFr?"Aucune licence ne correspond aux filtres appliqués":"No licences match the applied filters"}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{padding:"6px 14px",fontSize:".7rem",color:"var(--muted)",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between"}}>
+        <span>{isFr?`Affichage de ${filtered.length.toLocaleString()} sur ${rows.length.toLocaleString()} licences`:`Viewing ${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} licences`}</span>
+        {activeFilters > 0 && <span style={{color:"var(--accent)"}}>{activeFilters} {isFr?"filtre(s) actif(s)":"active filter(s)"}</span>}
       </div>
     </div>
   );
