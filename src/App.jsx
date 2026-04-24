@@ -1461,14 +1461,19 @@ export default function App() {
             <button onClick={()=>{ if(masterAuth){setShowMasterLogin(s=>!s);}else{setShowMasterLogin(s=>!s);} }}
               style={{
                 padding:"4px 10px", borderRadius:"7px", fontSize:".75rem",
-                border:`1px solid ${masterAuth?"rgba(29,158,117,.4)":"var(--border)"}`,
-                background: masterAuth ? "rgba(29,158,117,.1)" : "transparent",
-                color: masterAuth ? "#1D9E75" : "var(--muted)",
+                border:`1px solid ${masterAuth ? (masterLoaded && (Date.now()-masterLoaded.getTime())/3600000 > 24 ? "rgba(192,57,43,.4)" : (Date.now()-masterLoaded?.getTime())/3600000 > 12 ? "rgba(230,126,34,.4)" : "rgba(29,158,117,.4)") : "var(--border)"}`,
+                background: masterAuth ? (masterLoaded && (Date.now()-masterLoaded.getTime())/3600000 > 24 ? "rgba(192,57,43,.1)" : (Date.now()-masterLoaded?.getTime())/3600000 > 12 ? "rgba(230,126,34,.1)" : "rgba(29,158,117,.1)") : "transparent",
+                color: masterAuth ? ((Date.now()-masterLoaded?.getTime())/3600000 > 24 ? "#c0392b" : (Date.now()-masterLoaded?.getTime())/3600000 > 12 ? "#e67e22" : "#1D9E75") : "var(--muted)",
                 cursor:"pointer", display:"flex", alignItems:"center", gap:"5px"
               }}>
               {masterAuth ? "🗂" : "🔐"}
               {masterAuth
-                ? (masterLoaded ? `Base globale · ${masterClients.length} clients` : "Base globale")
+                ? (masterLoaded ? (() => {
+                    const ageH = (Date.now() - masterLoaded.getTime()) / 3600000;
+                    const freshColor = ageH < 12 ? "#1D9E75" : ageH < 24 ? "#e67e22" : "#c0392b";
+                    const ageLabel = ageH < 1 ? (lang==="fr"?"<1h":"<1h") : ageH < 24 ? `${Math.floor(ageH)}h` : `${Math.floor(ageH/24)}j`;
+                    return `Base globale · ${masterClients.length} clients · ${ageLabel}`;
+                  })() : "Base globale")
                 : (lang==="fr" ? "Base globale" : "Global base")}
             </button>
           </div>
@@ -3087,6 +3092,10 @@ function LicenceTable({ files, lang, expiryDays }) {
   const isFr = lang === "fr";
   const [rows, setRows] = useState([]);
   const [sort, setSort] = useState({col:"urgency", dir:"asc"});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [colWidths, setColWidths] = useState({});
+  const resizeRef = useRef({});
   const [search, setSearch] = useState("");
   const [openFilter, setOpenFilter] = useState(null); // which filter dropdown is open
 
@@ -3222,8 +3231,23 @@ function LicenceTable({ files, lang, expiryDays }) {
     return sort.dir==="asc"?va.localeCompare(vb):vb.localeCompare(va);
   });
 
-  const handleSort = col => setSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}));
+  const handleSort = col => { setSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"})); setPage(1); };
   const sortIcon = col => sort.col===col?(sort.dir==="asc"?" ▲":" ▼"):"";
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginated = filtered.slice((page-1)*pageSize, page*pageSize);
+
+  // Column resize
+  const startResize = (e, colKey) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = colWidths[colKey] || 120;
+    const onMove = ev => setColWidths(w => ({...w, [colKey]: Math.max(60, startW + ev.clientX - startX)}));
+    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
 
   const exportCsv = () => {
     const cols=["client","company","software","edition","type","users","computer","ak","expiry","usStatus","created","orderid","comment","status"];
@@ -3459,22 +3483,31 @@ function LicenceTable({ files, lang, expiryDays }) {
             <tr style={{background:"var(--bg2,#f8fafe)",position:"sticky",top:0,zIndex:2,borderBottom:"2px solid var(--border)"}}>
               <th style={{width:"30px",padding:"8px 10px"}}><input type="checkbox" style={{accentColor:"#e67e22"}}/></th>
               {COLS.map(col=>(
-                <th key={col.key} onClick={()=>handleSort(col.key)} style={{
+                <th key={col.key} style={{
                   padding:"8px 10px",textAlign:"left",fontWeight:600,
-                  color:"var(--text)",cursor:"pointer",whiteSpace:"nowrap",
-                  width:col.w,userSelect:"none",fontSize:".72rem",
-                  borderRight:"1px solid var(--border)"
+                  color:"var(--text)",whiteSpace:"nowrap",
+                  width:colWidths[col.key]||col.w,userSelect:"none",fontSize:".72rem",
+                  borderRight:"1px solid var(--border)",position:"relative"
                 }}>
-                  {col.label}{sortIcon(col.key)}
+                  <span onClick={()=>handleSort(col.key)} style={{cursor:"pointer"}}>
+                    {col.label}{sortIcon(col.key)}
+                  </span>
+                  <span
+                    onMouseDown={e=>startResize(e,col.key)}
+                    style={{
+                      position:"absolute",right:0,top:0,bottom:0,width:"5px",
+                      cursor:"col-resize",background:"transparent",zIndex:1
+                    }}/>
                 </th>
               ))}
               <th style={{width:"30px"}}/>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r,i)=>{
+            {paginated.map((r,i)=>{
               const badge=US_BADGE[r.usStatus]||US_BADGE.none;
-              const isFirstOfFile = files.length > 1 && (i === 0 || filtered[i-1]._file !== r._file);
+              const globalI = (page-1)*pageSize + i;
+              const isFirstOfFile = files.length > 1 && (globalI === 0 || filtered[globalI-1]._file !== r._file);
               const cleanClient=(!r.client||r.client.startsWith("(")||r.client==="—")?"—":r.client;
               const isAS = r.software?.includes("Advanced Security");
               const swLabel = isAS ? "Advanced Security" : (r.software||"—");
@@ -3542,10 +3575,43 @@ function LicenceTable({ files, lang, expiryDays }) {
         )}
       </div>
 
-      {/* Footer */}
-      <div style={{padding:"6px 14px",fontSize:".7rem",color:"var(--muted)",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between"}}>
-        <span>{isFr?`Affichage de ${filtered.length.toLocaleString()} sur ${rows.length.toLocaleString()} licences`:`Viewing ${filtered.length.toLocaleString()} of ${rows.length.toLocaleString()} licences`}</span>
-        {activeFilters > 0 && <span style={{color:"var(--accent)"}}>{activeFilters} {isFr?"filtre(s) actif(s)":"active filter(s)"}</span>}
+      {/* Footer + Pagination */}
+      <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <span style={{fontSize:".72rem",color:"var(--muted)"}}>
+            {isFr?`${filtered.length.toLocaleString()} licences`:`${filtered.length.toLocaleString()} licences`}
+          </span>
+          {activeFilters > 0 && <span style={{fontSize:".7rem",color:"var(--accent)"}}>{activeFilters} {isFr?"filtre(s)":"filter(s)"}</span>}
+          <select value={pageSize} onChange={e=>{setPageSize(parseInt(e.target.value));setPage(1);}} style={{
+            padding:"2px 6px",borderRadius:"5px",border:"1px solid var(--border)",
+            background:"var(--surface)",color:"var(--text)",fontSize:".72rem",cursor:"pointer"
+          }}>
+            {[25,50,100,200].map(n=><option key={n} value={n}>{n} / {isFr?"page":"page"}</option>)}
+          </select>
+        </div>
+        {totalPages > 1 && (
+          <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
+            <button onClick={()=>setPage(1)} disabled={page===1} style={{padding:"2px 7px",borderRadius:"5px",border:"1px solid var(--border)",background:page===1?"var(--border)":"var(--surface)",color:page===1?"var(--muted)":"var(--text)",cursor:page===1?"default":"pointer",fontSize:".72rem"}}>«</button>
+            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:"2px 7px",borderRadius:"5px",border:"1px solid var(--border)",background:page===1?"var(--border)":"var(--surface)",color:page===1?"var(--muted)":"var(--text)",cursor:page===1?"default":"pointer",fontSize:".72rem"}}>‹</button>
+            {Array.from({length:Math.min(5,totalPages)},(_,i)=>{
+              let p;
+              if (totalPages<=5) p=i+1;
+              else if (page<=3) p=i+1;
+              else if (page>=totalPages-2) p=totalPages-4+i;
+              else p=page-2+i;
+              return (
+                <button key={p} onClick={()=>setPage(p)} style={{
+                  padding:"2px 8px",borderRadius:"5px",border:"1px solid var(--border)",
+                  background:p===page?"#1A3C5E":"var(--surface)",
+                  color:p===page?"#fff":"var(--text)",cursor:"pointer",fontSize:".72rem",fontWeight:p===page?700:400
+                }}>{p}</button>
+              );
+            })}
+            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:"2px 7px",borderRadius:"5px",border:"1px solid var(--border)",background:page===totalPages?"var(--border)":"var(--surface)",color:page===totalPages?"var(--muted)":"var(--text)",cursor:page===totalPages?"default":"pointer",fontSize:".72rem"}}>›</button>
+            <button onClick={()=>setPage(totalPages)} disabled={page===totalPages} style={{padding:"2px 7px",borderRadius:"5px",border:"1px solid var(--border)",background:page===totalPages?"var(--border)":"var(--surface)",color:page===totalPages?"var(--muted)":"var(--text)",cursor:page===totalPages?"default":"pointer",fontSize:".72rem"}}>»</button>
+            <span style={{fontSize:".7rem",color:"var(--muted)",marginLeft:"4px"}}>{page} / {totalPages}</span>
+          </div>
+        )}
       </div>
     </div>
   );
