@@ -3539,7 +3539,7 @@ function LicenceTable({ files, lang, expiryDays }) {
                       {r.company && r.company!=="—" && <div style={{fontSize:".68rem",color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.company}</div>}
                     </td>
                     <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)",overflow:"hidden"}}>
-                      <div style={{fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>{swLabel}<span style={{color:"var(--muted)",fontWeight:400,fontSize:".68rem"}}>{edLabel}</span></div>
+                      <div style={{fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>{swLabel}<span style={{color:"var(--muted)",fontWeight:400,fontSize:".68rem"}}>{edLabel ? " "+edLabel : ""}</span></div>
                       {r.users && r.users!=="—" && <div style={{fontSize:".68rem",color:"var(--muted)"}}>{r.users} {isFr?"util.":"users"}</div>}
                     </td>
                     <td style={{padding:"6px 10px",borderRight:"1px solid var(--border)"}}>
