@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Fond navy -->
+  <rect width="32" height="32" rx="5" fill="#1A3C5E"/>
+  <!-- Document blanc -->
+  <rect x="3" y="2" width="18" height="22" rx="2" fill="white" fill-opacity="0.95"/>
+  <!-- Coin plié -->
+  <path d="M17 2 L21 2 L21 6 Z" fill="#b0bec5"/>
+  <rect x="17" y="2" width="4" height="4" rx="1" fill="#cfd8dc"/>
+  <!-- Lignes texte -->
+  <rect x="5" y="7" width="10" height="2" rx="1" fill="#1A3C5E" fill-opacity="0.2"/>
+  <!-- Barres données -->
+  <rect x="5" y="12" width="3" height="7" rx="1" fill="#e67e22"/>
+  <rect x="9" y="10" width="3" height="9" rx="1" fill="#1D9E75"/>
+  <rect x="13" y="14" width="3" height="5" rx="1" fill="#e67e22" fill-opacity="0.65"/>
+  <!-- Badge clé orange (bas droite) -->
+  <circle cx="24" cy="24" r="7" fill="#e67e22"/>
+  <!-- Clé blanche dans le badge -->
+  <circle cx="22" cy="22" r="3" fill="none" stroke="white" stroke-width="1.5"/>
+  <circle cx="22" cy="22" r="1.2" fill="#e67e22"/>
+  <rect x="24.2" y="21.2" width="5" height="1.6" rx="0.8" fill="white"/>
+  <rect x="27.2" y="21.2" width="2" height="2.8" rx="0.6" fill="white"/>
+  <rect x="24.8" y="21.2" width="2" height="2.2" rx="0.6" fill="white"/>
+</svg>
