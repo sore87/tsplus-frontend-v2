@@ -3104,6 +3104,8 @@ function LicenceTable({ files, lang, expiryDays }) {
   const [fType,     setFType]     = useState([]);
   const [fStatus,   setFStatus]   = useState([]);
   const [fUS,       setFUS]       = useState([]);
+  const [fAutoRenew, setFAutoRenew] = useState(false);
+  const [tmpAutoRenew, setTmpAutoRenew] = useState(false);
   const [fComputer, setFComputer] = useState("");
   const [fAccount,  setFAccount]  = useState("");
   const [fComment,  setFComment]  = useState("");
@@ -3189,7 +3191,9 @@ function LicenceTable({ files, lang, expiryDays }) {
             created:  iCreated >=0?c[iCreated]?.slice(0,10):"—",
             comment:  iComments>=0?c[iComments]:"—",
             status:   iStatus  >=0?c[iStatus]  :"—",
-            usStatus, _file:file.name,
+            usStatus,
+            autoRenew: (c[header.findIndex(h=>h==="auto_renew")]||"").trim() === "1",
+            _file:file.name,
           });
         }
       }
@@ -3213,6 +3217,7 @@ function LicenceTable({ files, lang, expiryDays }) {
     if (fType.length>0     && !fType.includes(r.type||"Perpetual")) return false;
     if (fStatus.length>0   && !fStatus.some(s => r.status?.toLowerCase().includes(s.toLowerCase()))) return false;
     if (fUS.length>0       && !fUS.includes(r.usStatus)) return false;
+    if (fAutoRenew && !r.autoRenew) return false;
     if (fComputer && !r.computer?.toLowerCase().includes(fComputer.toLowerCase())) return false;
     if (fAccount  && ![r.client,r.company].some(v=>v?.toLowerCase().includes(fAccount.toLowerCase()))) return false;
     if (fComment  && !r.comment?.toLowerCase().includes(fComment.toLowerCase())) return false;
@@ -3266,13 +3271,14 @@ function LicenceTable({ files, lang, expiryDays }) {
   const activeFilters = [
     fProduct.length, fType.length, fStatus.length, fUS.length,
     fComputer?1:0, fAccount?1:0, fComment?1:0, fOrderId?1:0,
-    (fDateFrom||fDateTo)?1:0
+    (fDateFrom||fDateTo)?1:0,
+    fAutoRenew?1:0
   ].reduce((a,b)=>a+b,0);
 
   const clearAll = () => {
     setFProduct([]); setFType([]); setFStatus([]); setFUS([]);
     setFComputer(""); setFAccount(""); setFComment(""); setFOrderId("");
-    setFDateFrom(""); setFDateTo(""); setOpenFilter(null);
+    setFDateFrom(""); setFDateTo(""); setFAutoRenew(false); setOpenFilter(null);
   };
 
   // KPI counts
@@ -3443,6 +3449,17 @@ function LicenceTable({ files, lang, expiryDays }) {
               applyFn={()=>{setFOrderId(tmpOrderId);setOpenFilter(null);}}/>
           </div>
         </Dropdown>
+
+        <label style={{
+          display:"flex",alignItems:"center",gap:"6px",padding:"4px 10px",
+          borderRadius:"99px",border:`1px solid ${fAutoRenew?"#1A3C5E":"var(--border)"}`,
+          background:fAutoRenew?"#1A3C5E":"var(--surface)",
+          color:fAutoRenew?"#fff":"var(--text)",
+          fontSize:".75rem",cursor:"pointer",fontWeight:fAutoRenew?600:400
+        }}>
+          <input type="checkbox" checked={fAutoRenew} onChange={e=>setFAutoRenew(e.target.checked)} style={{display:"none"}}/>
+          {fAutoRenew?"✕":"⊕"} {isFr?"Auto-renew":"Auto-renew"}
+        </label>
 
         <Dropdown id="date" label={isFr?"Date commande":"Order date"} isActive={(fDateFrom||fDateTo)?1:0}>
           <div data-filter style={{padding:"12px"}}>
